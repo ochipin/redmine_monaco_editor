@@ -2,7 +2,7 @@ Redmine::Plugin.register :redmine_monaco_editor do
   name        'Redmine Monaco Editor'
   author      'Suguru Ochiai'
   description 'Replaces the default Redmine text editor with Monaco Editor (VS Code engine) with Markdown syntax highlighting and side-by-side preview.'
-  version     '0.1'
+  version     '0.1.0'
   requires_redmine version_or_higher: '6.0.0'
 end
 
