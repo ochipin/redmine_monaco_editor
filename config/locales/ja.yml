@@ -1,0 +1,71 @@
+ja:
+  # ============================================================
+  # Redmine Monaco Editor - UI文字列（日本語）
+  # ============================================================
+  # これらのキーは init.rb のビューフックが埋め込む <script> 経由で
+  # フロントエンドのJavaScriptに渡される。
+  # すべて "monaco_editor" 名前空間の下に置く。
+  monaco_editor:
+    # モードボタン（ツールバー左側）
+    mode_edit: "編集"
+    mode_edit_tip: "編集のみ表示"
+    mode_split: "分割"
+    mode_split_tip: "エディタ＋プレビュー（左右）"
+    mode_split_v_tip: "エディタ＋プレビュー（上下）"
+    mode_preview_tip: "プレビューのみ表示"
+    outline_tip: "見出しのアウトラインを表示/非表示"
+
+    # 装飾ボタン（ツールバー右側）
+    bold_tip: "太字 (Ctrl+B)"
+    italic_tip: "斜体 (Ctrl+I)"
+    underline_tip: "下線"
+    strike_tip: "取消線"
+    code_inline_tip: "インラインコード"
+    h1_tip: "見出し1"
+    h2_tip: "見出し2"
+    h3_tip: "見出し3"
+    h4_tip: "見出し4"
+    ul_tip: "箇条書きリスト"
+    ol_tip: "番号付きリスト"
+    blockquote_tip: "引用"
+    code_block_tip: "コードブロック"
+    table_tip: "表を挿入"
+    image_tip: "画像を挿入"
+    file_link_tip: "ファイルリンクを挿入"
+
+    # 選択範囲を囲むときのプレースホルダ
+    placeholder_text: "テキスト"
+    placeholder_code: "コード"
+
+    # プレビューペイン
+    preview_loading: "読み込み中..."
+    preview_failed: "プレビューの取得に失敗しました"
+    preview_url_missing: "プレビューURLが見つかりません"
+
+    # アウトラインパネル
+    outline_empty: "見出しがありません"
+
+    # リサイズハンドル
+    resize_tip: "ドラッグして高さを変更"
+
+    # 表ピッカー
+    table_insert: "表を挿入"
+    table_col_prefix: "列"
+
+    # 画像ピッカー
+    image_from_attachments: "添付ファイルから挿入"
+    image_other_files: "その他のファイル"
+    image_manual_label: "ファイル名を直接入力"
+    image_manual_placeholder: "ファイル名を入力（例: image.png）"
+    insert: "挿入"
+
+    # ファイルリンクピッカー
+    filelink_title: "添付ファイルへのリンクを挿入"
+    filelink_manual_label: "ファイル名を直接入力"
+    filelink_manual_placeholder: "ファイル名を入力（例: design.pdf）"
+    filelink_desc_label: "説明: "
+    filelink_date_label: "日付: "
+
+    # チケットツールチップ
+    ticket_not_found: "チケットが見つかりません"
+    note_prefix: "注記#"

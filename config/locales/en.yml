@@ -1,0 +1,71 @@
+en:
+  # ============================================================
+  # Redmine Monaco Editor - UI strings (English)
+  # ============================================================
+  # These keys are exposed to the front-end JavaScript through a
+  # <script> block injected by the view hook (see init.rb).
+  # All keys live under the "monaco_editor" namespace.
+  monaco_editor:
+    # Mode buttons (left side of the toolbar)
+    mode_edit: "Edit"
+    mode_edit_tip: "Show editor only"
+    mode_split: "Split"
+    mode_split_tip: "Editor + preview (side by side)"
+    mode_split_v_tip: "Editor + preview (stacked)"
+    mode_preview_tip: "Show preview only"
+    outline_tip: "Toggle heading outline"
+
+    # Decoration buttons (right side of the toolbar)
+    bold_tip: "Bold (Ctrl+B)"
+    italic_tip: "Italic (Ctrl+I)"
+    underline_tip: "Underline"
+    strike_tip: "Strikethrough"
+    code_inline_tip: "Inline code"
+    h1_tip: "Heading 1"
+    h2_tip: "Heading 2"
+    h3_tip: "Heading 3"
+    h4_tip: "Heading 4"
+    ul_tip: "Bulleted list"
+    ol_tip: "Numbered list"
+    blockquote_tip: "Quote"
+    code_block_tip: "Code block"
+    table_tip: "Insert table"
+    image_tip: "Insert image"
+    file_link_tip: "Insert file link"
+
+    # Placeholders used when wrapping a selection
+    placeholder_text: "text"
+    placeholder_code: "code"
+
+    # Preview pane
+    preview_loading: "Loading..."
+    preview_failed: "Failed to load preview"
+    preview_url_missing: "Preview URL not found"
+
+    # Outline panel
+    outline_empty: "No headings"
+
+    # Resize handle
+    resize_tip: "Drag to resize height"
+
+    # Table picker
+    table_insert: "Insert table"
+    table_col_prefix: "Col"
+
+    # Image picker
+    image_from_attachments: "Insert from attachments"
+    image_other_files: "Other files"
+    image_manual_label: "Enter a file name directly"
+    image_manual_placeholder: "Enter a file name (e.g. image.png)"
+    insert: "Insert"
+
+    # File link picker
+    filelink_title: "Insert a link to an attachment"
+    filelink_manual_label: "Enter a file name directly"
+    filelink_manual_placeholder: "Enter a file name (e.g. design.pdf)"
+    filelink_desc_label: "Description: "
+    filelink_date_label: "Date: "
+
+    # Ticket tooltip
+    ticket_not_found: "ticket not found"
+    note_prefix: "Note #"

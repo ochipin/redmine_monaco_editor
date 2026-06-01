@@ -1,0 +1,772 @@
+/* ============================================================
+   Redmine Monaco Editor Plugin - Stylesheet
+   ============================================================ */
+
+/* エディタ全体のラッパー */
+.monaco-editor-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+  margin-bottom: 4px;
+  position: relative;
+  overflow: hidden;      /* 内部要素が下のフォームに被らないよう保険 */
+  min-height: 150px;
+  box-sizing: border-box;
+}
+
+/* 縦リサイズハンドル（下端） */
+.monaco-resize-handle {
+  height: 6px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  background: #f0f0f0;
+  border-top: 1px solid #ddd;
+  border-radius: 0 0 3px 3px;
+  background-image: radial-gradient(circle, #aaa 1px, transparent 1px);
+  background-size: 4px 4px;
+  background-position: center;
+  background-repeat: repeat-x;
+}
+
+.monaco-resize-handle:hover {
+  background-color: #e0e8f0;
+}
+
+/* ============================================================
+   単一ツールバー構造（1段）
+   左: モードボタン群 (.monaco-toolbar-modes) — 固定で隠れない
+   右: 装飾ボタン群   (.monaco-decoration-toolbar) — 幅不足で右から隠れる
+   ============================================================ */
+
+/* ツールバー全体 */
+.monaco-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #fafafa;
+  border-bottom: 1px solid #ddd;
+  border-radius: 3px 3px 0 0;
+  min-height: 36px;
+  flex-shrink: 0;       /* bodyが伸縮してもツールバーは潰れない */
+  overflow: hidden;     /* 装飾ボタンが幅を超えたら隠す */
+  flex-wrap: nowrap;    /* 折り返さず1段固定 */
+}
+
+/* モードボタン群（左・固定幅・縮まない・隠れない） */
+.monaco-toolbar-modes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;       /* 縮小も省略もしない */
+}
+
+/* 装飾ボタン群（右・幅が足りなければ右端から見切れる） */
+.monaco-decoration-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;    /* 折り返さない（はみ出しは overflow:hidden で切る）*/
+  flex-shrink: 1;
+  min-width: 0;         /* flexアイテムが縮めるように */
+  overflow: hidden;
+}
+
+/* 装飾ボタン（アイコンのみ、正方形） */
+.monaco-deco-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;       /* Redmineテーマのボタン影を除去（青ぽつぽつ対策） */
+  -webkit-appearance: none;
+  appearance: none;       /* OS/テーマのデフォルト装飾を無効化 */
+  color: #333;
+  line-height: 1;
+  transition: background 0.12s, border-color 0.12s;
+  user-select: none;
+  flex-shrink: 0;       /* 各ボタンは縮まず、丸ごと見切れる */
+}
+
+.monaco-deco-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* H1〜H4 は viewBox が横長（20x16）なので幅を広めに */
+.monaco-deco-btn-wide {
+  width: 32px;
+}
+
+.monaco-deco-btn-wide svg {
+  width: 20px;
+}
+
+.monaco-deco-btn:hover {
+  background: #e8f0fe;
+  border-color: #4a90d9;
+  color: #1a73e8;
+}
+
+.monaco-deco-btn:active {
+  background: #d2e3fc;
+}
+
+/* 区切り線 */
+.monaco-deco-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: #ccc;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* モード群と装飾群の境界セパレータ */
+.monaco-group-sep {
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* プレビュー切り替えボタン（モードボタン） */
+.monaco-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  gap: 4px;
+  height: 28px;            /* 装飾ボタンと高さを統一 */
+  padding: 0 10px;
+  margin: 0;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  border: 1px solid #bbb;
+  background: #fff;
+  box-shadow: none;        /* Redmineテーマのボタン影を除去 */
+  -webkit-appearance: none;
+  appearance: none;
+  color: #333;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* アイコンのみのモードボタン（縦分割・プレビュー・アウトライン） */
+.monaco-preview-btn.monaco-icon-only {
+  width: 30px;
+  padding: 0;
+}
+
+.monaco-preview-btn.monaco-icon-only svg {
+  margin: 0;
+}
+
+.monaco-preview-btn:hover {
+  background: #e8f0fe;
+  border-color: #4a90d9;
+  color: #1a73e8;
+}
+
+.monaco-preview-btn.active {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
+}
+
+.monaco-preview-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* エディタ本体エリア（アウトライン | ペインラッパー の横並び） */
+.monaco-editor-body {
+  display: flex;
+  flex-direction: row;   /* 常に横並び。左=アウトライン、右=paneWrap */
+  flex: 1 1 auto;
+  min-height: 0;         /* wrapperの高さに完全追従（はみ出し防止）*/
+  overflow: hidden;
+}
+
+/* ペインラッパー（エディタ＋スプリッター＋プレビューを内包） */
+/* アウトラインの右側を占有し、分割方向はここで制御する */
+.monaco-pane-wrap {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Monacoコンテナ */
+.monaco-editor-container {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;     /* wrapperの高さに追従（はみ出し防止）*/
+  overflow: hidden;
+}
+
+/* プレビューペイン */
+.monaco-preview-pane {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  overflow-y: auto;
+  border-left: 1px solid #ddd;
+  display: none; /* デフォルトは非表示 */
+}
+
+/* 分割スプリッター（デフォルト非表示。分割時のみ表示） */
+.monaco-splitter {
+  display: none;
+  flex-shrink: 0;
+  background: #e8e8e8;
+  position: relative;
+  z-index: 1;
+}
+
+/* 左右分割時: 縦バー（左右ドラッグ）。判定は body、見た目適用は paneWrap 内 */
+.monaco-editor-body.split-view .monaco-splitter {
+  display: block;
+  width: 6px;
+  cursor: col-resize;
+  background-image: radial-gradient(circle, #999 1px, transparent 1px);
+  background-size: 4px 4px;
+  background-position: center;
+  background-repeat: repeat-y;
+}
+
+/* 縦分割時: 横バー（上下ドラッグ） */
+.monaco-editor-body.split-view.split-vertical .monaco-splitter {
+  width: auto;
+  height: 6px;
+  cursor: row-resize;
+  background-image: radial-gradient(circle, #999 1px, transparent 1px);
+  background-size: 4px 4px;
+  background-position: center;
+  background-repeat: repeat-x;
+}
+
+.monaco-splitter:hover {
+  background-color: #c8d4e0;
+}
+
+/* サイドバイサイド表示時（左右に並べる） */
+.monaco-editor-body.split-view .monaco-preview-pane {
+  display: block;
+}
+
+/* 縦分割（上下に並べる。画面幅に依存しない）。
+   paneWrap だけを column 方向にする。bodyは row のままなので
+   アウトラインは左に固定され、スプリッターの割合計算も安定する。 */
+.monaco-editor-body.split-view.split-vertical .monaco-pane-wrap {
+  flex-direction: column;
+}
+.monaco-editor-body.split-view.split-vertical .monaco-editor-container {
+  flex: 1 1 50%;
+  min-height: 100px;
+}
+.monaco-editor-body.split-view.split-vertical .monaco-preview-pane {
+  flex: 1 1 50%;
+  min-height: 100px;
+  border-left: none;
+  border-top: 1px solid #ddd;
+}
+
+/* プレビューのみ表示時（編集エリアを隠す） */
+.monaco-editor-body.preview-only .monaco-editor-container {
+  display: none;
+}
+
+.monaco-editor-body.preview-only .monaco-preview-pane {
+  display: block;
+  border-left: none;
+  flex: 1;
+}
+
+/* ------------------------------------------------------------
+   狭い画面（768px以下）: 分割表示を縦並び（上:エディタ / 下:プレビュー）に
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+  .monaco-editor-body.split-view .monaco-pane-wrap {
+    flex-direction: column;
+  }
+  .monaco-editor-body.split-view .monaco-editor-container {
+    /* 上半分をエディタに */
+    flex: 1 1 50%;
+    min-height: 0;
+  }
+  .monaco-editor-body.split-view .monaco-preview-pane {
+    /* 下半分をプレビューに。境界線を左→上に変更 */
+    flex: 1 1 50%;
+    min-height: 0;
+    border-left: none;
+    border-top: 1px solid #ddd;
+  }
+  /* 狭い画面の縦並び時もスプリッターを横バーに */
+  .monaco-editor-body.split-view .monaco-splitter {
+    width: auto;
+    height: 6px;
+    cursor: row-resize;
+    background-repeat: repeat-x;
+  }
+}
+
+/* プレビュー内の見た目は Redmineテーマの .wiki / .wiki-preview に委譲する。
+   （章番号の自動採番・フォント・テーブル等はテーマCSSがそのまま効く）
+   ここでは独自装飾を一切当てない。 */
+
+/* ローディング表示 */
+.monaco-preview-loading {
+  color: #999;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* 元のtextareaは隠す */
+textarea.wiki-edit.monaco-replaced {
+  display: none !important;
+}
+
+/* ============================================================
+   #1010 キャレット連動ツールチップ（自前DOM）
+   ============================================================ */
+.monaco-issue-tooltip {
+  position: absolute;
+  z-index: 10000;
+  max-width: 600px;
+  padding: 5px 10px;
+  background: #2b2b2b;
+  color: #f0f0f0;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none; /* ツールチップ自体はマウス操作を奪わない */
+}
+
+.monaco-issue-tooltip .tip-id {
+  font-weight: bold;
+  color: #6cb6ff;
+}
+
+.monaco-issue-tooltip .tip-meta {
+  color: #c8c8c8;
+}
+
+/* ============================================================
+   （旧）Monaco標準Hoverの余白詰め。キャレット方式に移行したが念のため残置
+   ============================================================ */
+.monaco-hover {
+  line-height: 1.4 !important;
+  max-width: 600px !important;
+  white-space: normal !important;
+}
+.monaco-hover .hover-row,
+.monaco-hover .hover-contents,
+.monaco-hover .markdown-hover {
+  padding: 4px 8px !important;
+}
+.monaco-hover p,
+.monaco-hover .hover-contents p {
+  margin: 0 0 2px 0 !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+}
+.monaco-hover p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* ============================================================
+   アウトラインパネル（左側・トグル表示）
+   ============================================================ */
+.monaco-outline-pane {
+  display: none;           /* デフォルト非表示 */
+  flex: 0 0 220px;         /* 固定幅220px */
+  min-width: 120px;
+  overflow-y: auto;
+  border-right: 1px solid #ddd;
+  background: #fafafa;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+/* アウトライン表示時のみパネルを出す */
+.monaco-editor-body.outline-visible .monaco-outline-pane {
+  display: block;
+}
+
+.monaco-outline-item {
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #333;
+  border-left: 2px solid transparent;
+}
+
+.monaco-outline-item:hover {
+  background: #e8f0fe;
+  border-left-color: #4a90d9;
+}
+
+/* 見出しレベルごとの見た目（H1は太め、深いほど薄く） */
+.monaco-outline-item.level-1 { font-weight: 600; color: #1a1a1a; }
+.monaco-outline-item.level-2 { font-weight: 500; color: #333; }
+.monaco-outline-item.level-3 { color: #555; }
+.monaco-outline-item.level-4,
+.monaco-outline-item.level-5,
+.monaco-outline-item.level-6 { color: #777; font-size: 11px; }
+
+.monaco-outline-empty {
+  padding: 10px 8px;
+  color: #999;
+  font-style: italic;
+}
+
+/* ============================================================
+   @メンション補完候補（suggest-widget）の配色
+   ============================================================ */
+/* Monaco本体が
+     .suggest-widget .monaco-list .monaco-list-row > .contents > .main ...
+   という深い階層＋高詳細度で色を指定しているため、こちらも同等以上の
+   詳細度で指定しないと上書きできない。DOM構造に沿って深く書く。
+   背景: 非選択行=明るいグレー / 選択行(focused)=濃い青 */
+
+/* 非選択行（明るい背景）→ 濃い文字 */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row:not(.focused) > .contents > .main .monaco-icon-label,
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row:not(.focused) > .contents > .main .monaco-icon-label .label-name,
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row:not(.focused) > .contents > .main .monaco-highlighted-label {
+  color: #1a1a1a !important;
+}
+
+/* 非選択行のあいまい一致ハイライト → 青で強調 */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row:not(.focused) > .contents > .main .monaco-highlighted-label .highlight {
+  color: #0a66c2 !important;
+  font-weight: bold !important;
+}
+
+/* 選択行(focused・濃い青背景) → 白文字 */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused > .contents > .main .monaco-icon-label,
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused > .contents > .main .monaco-icon-label .label-name,
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused > .contents > .main .monaco-highlighted-label {
+  color: #ffffff !important;
+}
+
+/* 選択行のあいまい一致ハイライト → 白＋下線 */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused > .contents > .main .monaco-highlighted-label .highlight {
+  color: #ffffff !important;
+  font-weight: bold !important;
+  text-decoration: underline !important;
+}
+
+/* あいまい一致ハイライトの黄色っぽい背景を消す（文字色だけで強調する） */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row > .contents > .main .monaco-highlighted-label .highlight {
+  background: transparent !important;
+}
+
+/* 説明（メンション） */
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row:not(.focused) > .contents > .main > .right > .details-label {
+  color: #666 !important;
+}
+.monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused > .contents > .main > .right > .details-label {
+  color: #e0e0e0 !important;
+}
+
+/* ============================================================
+   表グリッド選択ピッカー
+   ============================================================ */
+.monaco-table-picker {
+  position: absolute;
+  z-index: 10001;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 8px;
+  user-select: none;
+}
+
+.monaco-table-label {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  margin-bottom: 6px;
+  min-height: 14px;
+  font-weight: 500;
+}
+
+.monaco-table-grid {
+  display: grid;
+  gap: 3px;
+}
+
+.monaco-table-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.08s, border-color 0.08s;
+}
+
+.monaco-table-cell.selected {
+  background: #b8d4f5;
+  border-color: #4a90d9;
+}
+
+.monaco-table-cell:hover {
+  border-color: #4a90d9;
+}
+
+/* ============================================================
+   画像挿入ピッカー
+   ============================================================ */
+.monaco-image-picker {
+  position: absolute;
+  z-index: 10001;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 10px;
+  min-width: 300px;
+  max-width: 520px;
+  max-height: 460px;
+  overflow-y: auto;
+  user-select: none;
+}
+
+.monaco-image-picker-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.monaco-image-picker-sep {
+  font-size: 10px;
+  color: #999;
+  margin: 8px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* サムネイルグリッド */
+.monaco-image-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.monaco-image-thumb {
+  width: 120px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  background: #fafafa;
+}
+
+.monaco-image-thumb:hover {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px #d2e3fc;
+}
+
+.monaco-image-thumb-img {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  overflow: hidden;
+}
+
+.monaco-image-thumb-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.monaco-image-thumb-name {
+  font-size: 13px;
+  color: #333;
+  padding: 4px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #fff;
+  border-top: 1px solid #eee;
+  line-height: 1.4;
+}
+
+/* 非画像ファイル行 */
+.monaco-image-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.monaco-image-file-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+  transition: background 0.1s;
+}
+
+.monaco-image-file-row:hover {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+.monaco-image-file-icon {
+  flex-shrink: 0;
+  color: #888;
+  display: flex;
+  align-items: center;
+}
+
+.monaco-image-file-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* フォールバック入力欄 */
+.monaco-image-fallback {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.monaco-image-input {
+  flex: 1;
+  font-size: 12px;
+  padding: 4px 7px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  outline: none;
+  color: #333;
+}
+
+.monaco-image-input:focus {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px #d2e3fc;
+}
+
+.monaco-image-insert-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid #4a90d9;
+  border-radius: 3px;
+  background: #1a73e8;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+
+.monaco-image-insert-btn:hover {
+  background: #1557b0;
+}
+
+/* ============================================================
+   装飾ツールバー：プレビューのみモード時の無効化
+   ============================================================ */
+.monaco-decoration-toolbar--disabled {
+  opacity: 0.4;
+  pointer-events: none;  /* クリック・ホバーを完全に無効化 */
+}
+
+/* ============================================================
+   ファイルリンク挿入ピッカー
+   ============================================================ */
+.monaco-filelink-picker {
+  min-width: 300px;
+  max-width: 460px;
+}
+
+.monaco-filelink-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 4px;
+}
+
+.monaco-filelink-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.monaco-filelink-row:hover {
+  background: #e8f0fe;
+}
+
+.monaco-filelink-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  width: 18px;
+  height: 18px;
+}
+
+.monaco-filelink-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.monaco-filelink-name {
+  font-size: 13px;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.monaco-filelink-desc {
+  font-size: 11px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
