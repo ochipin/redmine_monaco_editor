@@ -205,6 +205,7 @@
         registerLanguageAliases();
         registerMarkdownOutline(window.monaco);
         registerTextileLanguage(window.monaco);
+        registerCustomThemes(window.monaco);
         registerMentionCompletion(window.monaco);
         done();
       }, function () {
@@ -212,11 +213,159 @@
         registerLanguageAliases();
         registerMarkdownOutline(window.monaco);
         registerTextileLanguage(window.monaco);
+        registerCustomThemes(window.monaco);
         registerMentionCompletion(window.monaco);
         done();
       });
     } catch (e) {
       done();
+    }
+  }
+
+  // ============================================================
+  // カスタムテーマ（GitHub Light / Quiet Light / GitHub Dark）
+  // ============================================================
+  // 個人設定の theme 値で選択する。値とMonacoテーマ名の対応:
+  //   "github-light" → mco-github-light
+  //   "quiet-light"  → mco-quiet-light
+  //   "github-dark"  → mco-github-dark
+  //   （上記以外/未設定 → 'vs'（Monaco組み込みの標準ライト））
+  // 配色は GitHub 公式テーマ(primer/github-vscode-theme)等を基にした近似。
+  var customThemesRegistered = false;
+  function registerCustomThemes(monaco) {
+    if (!monaco || customThemesRegistered) { return; }
+    customThemesRegistered = true;
+
+    // --- GitHub Light ---
+    // 背景 #ffffff / 文字 #24292f。GitHubのコード表示でおなじみの配色。
+    monaco.editor.defineTheme('mco-github-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: '',         foreground: '24292f' },
+        { token: 'comment',  foreground: '6e7781', fontStyle: 'italic' },
+        { token: 'keyword',  foreground: 'cf222e' },
+        { token: 'string',   foreground: '0a3069' },
+        { token: 'number',   foreground: '0550ae' },
+        { token: 'regexp',   foreground: '116329' },
+        { token: 'type',     foreground: '953800' },
+        { token: 'class',    foreground: '953800' },
+        { token: 'function', foreground: '8250df' },
+        { token: 'variable', foreground: '24292f' },
+        { token: 'constant', foreground: '0550ae' },
+        { token: 'operator', foreground: 'cf222e' },
+        { token: 'tag',      foreground: '116329' },
+        { token: 'attribute.name', foreground: '0550ae' },
+        // Markdown
+        { token: 'keyword.md',   foreground: '0550ae' }, // 見出し等
+        { token: 'string.link.md', foreground: '0a3069' },
+        // Textile（自前Monarch: keyword=見出し, strong/emphasis 等）
+        { token: 'strong',   foreground: '24292f', fontStyle: 'bold' },
+        { token: 'emphasis', foreground: '24292f', fontStyle: 'italic' }
+      ],
+      colors: {
+        'editor.background': '#ffffff',
+        'editor.foreground': '#24292f',
+        'editorLineNumber.foreground': '#8c959f',
+        'editorLineNumber.activeForeground': '#24292f',
+        'editor.selectionBackground': '#0969da33',
+        'editor.lineHighlightBackground': '#f6f8fa',
+        'editorCursor.foreground': '#24292f',
+        'editorIndentGuide.background': '#eaecef',
+        'editorWhitespace.foreground': '#d0d7de'
+      }
+    });
+
+    // --- Quiet Light ---
+    // 背景 #f5f5f5 のやや暖色。主張控えめで落ち着いた配色。
+    monaco.editor.defineTheme('mco-quiet-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: '',         foreground: '333333' },
+        { token: 'comment',  foreground: 'aaaaaa', fontStyle: 'italic' },
+        { token: 'keyword',  foreground: '4b69c6' },
+        { token: 'string',   foreground: '448c27' },
+        { token: 'number',   foreground: 'ab6526' },
+        { token: 'regexp',   foreground: '4b69c6' },
+        { token: 'type',     foreground: '7a3e9d' },
+        { token: 'class',    foreground: '7a3e9d' },
+        { token: 'function', foreground: 'aa3731' },
+        { token: 'variable', foreground: '333333' },
+        { token: 'constant', foreground: 'ab6526' },
+        { token: 'operator', foreground: '777777' },
+        { token: 'tag',      foreground: '4b69c6' },
+        { token: 'attribute.name', foreground: 'aa3731' },
+        { token: 'keyword.md',   foreground: '7a3e9d' },
+        { token: 'string.link.md', foreground: '448c27' },
+        { token: 'strong',   foreground: '333333', fontStyle: 'bold' },
+        { token: 'emphasis', foreground: '333333', fontStyle: 'italic' }
+      ],
+      colors: {
+        'editor.background': '#f5f5f5',
+        'editor.foreground': '#333333',
+        'editorLineNumber.foreground': '#b3b3b3',
+        'editorLineNumber.activeForeground': '#333333',
+        'editor.selectionBackground': '#c9d0d9',
+        'editor.lineHighlightBackground': '#ececec',
+        'editorCursor.foreground': '#54494b',
+        'editorIndentGuide.background': '#e0e0e0',
+        'editorWhitespace.foreground': '#d6d6d6'
+      }
+    });
+
+    // --- GitHub Dark ---
+    // 背景 #25292E / 文字 #c9d1d9。GitHubのダーク表示の配色（背景は調整版）。
+    monaco.editor.defineTheme('mco-github-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: '',         foreground: 'E1E4E8' },
+        { token: 'comment',  foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'keyword',  foreground: 'ff7b72' },
+        { token: 'string',   foreground: 'a5d6ff' },
+        { token: 'number',   foreground: '79c0ff' },
+        { token: 'regexp',   foreground: '7ee787' },
+        { token: 'type',     foreground: 'ffa657' },
+        { token: 'class',    foreground: 'ffa657' },
+        { token: 'function', foreground: 'd2a8ff' },
+        { token: 'variable', foreground: 'E1E4E8' },
+        { token: 'constant', foreground: '79c0ff' },
+        { token: 'operator', foreground: 'ff7b72' },
+        { token: 'tag',      foreground: '7ee787' },
+        { token: 'attribute.name', foreground: '79c0ff' },
+        // keyword.md は Markdown の見出し/リストマーカー等に使われる。
+        // Monaco標準のMarkdownトークナイザでは見出しとリストが同じ
+        // keyword.md トークンになり区別できないため、両方を同色にする。
+        // （分離するにはトークナイザの上書きが必要だが、コードフェンス内
+        //   ハイライト等の標準機能を損なうリスクがあるため見送り）
+        { token: 'keyword.md',   foreground: '82B9FF' },
+        { token: 'string.link.md', foreground: 'a5d6ff' },
+        { token: 'strong',   foreground: 'E1E4E8', fontStyle: 'bold' },
+        { token: 'emphasis', foreground: 'E1E4E8', fontStyle: 'italic' }
+      ],
+      colors: {
+        'editor.background': '#25292E',
+        'editor.foreground': '#E1E4E8',
+        'editorLineNumber.foreground': '#6e7681',
+        'editorLineNumber.activeForeground': '#c9d1d9',
+        'editor.selectionBackground': '#3392ff44',
+        'editor.lineHighlightBackground': '#2C3036',
+        'editorCursor.foreground': '#c9d1d9',
+        'editorIndentGuide.background': '#21262d',
+        'editorWhitespace.foreground': '#484f58'
+      }
+    });
+  }
+
+  // 個人設定の theme 値 → 実際に setTheme へ渡すMonacoテーマ名へ変換。
+  // 未知の値や未設定は 'vs'（標準ライト）にフォールバック。
+  function resolveThemeName(themeValue) {
+    switch (themeValue) {
+      case 'github-light': return 'mco-github-light';
+      case 'quiet-light':  return 'mco-quiet-light';
+      case 'github-dark':  return 'mco-github-dark';
+      default:             return 'vs';
     }
   }
 
@@ -1133,7 +1282,7 @@
       // Markdownは組み込みmarkdownモード（コードフェンス内も色分け）。
       // Textileは自前の簡易Monarch言語 'textile' で主要記法を色付け。
       language: (textFormat === 'textile') ? 'textile' : 'markdown',
-      theme: 'vs',
+      theme: resolveThemeName(PREFS.theme),
       lineNumbers: 'off',
       wordWrap: 'on',
       minimap: { enabled: false },

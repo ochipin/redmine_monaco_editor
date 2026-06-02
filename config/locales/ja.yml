@@ -73,3 +73,7 @@ ja:
     # 個人設定画面（My account）
     pref_section: "Monaco Editor"
     pref_enabled: "Monaco Editor を使用する"
+    pref_theme: "テーマ"
+    theme_github_light: "GitHub Light（明るい）"
+    theme_quiet_light: "Quiet Light（落ち着いた明るい）"
+    theme_github_dark: "GitHub Dark（暗い）"

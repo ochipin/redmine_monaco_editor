@@ -73,3 +73,7 @@ en:
     # My account page
     pref_section: "Monaco Editor"
     pref_enabled: "Use Monaco Editor"
+    pref_theme: "Theme"
+    theme_github_light: "GitHub Light"
+    theme_quiet_light: "Quiet Light"
+    theme_github_dark: "GitHub Dark"

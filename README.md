@@ -51,6 +51,9 @@ Works whether Redmine is set to Markdown or Textile. The toolbar buttons automat
 **Per-user on/off**
 For people who prefer the familiar standard editor, each user can choose whether to use Monaco Editor from their own "My account" preferences page. When turned off, Monaco is not loaded for that user and Redmine's standard editor is shown as usual.
 
+**Selectable themes**
+Each user can pick an editor theme from their "My account" preferences: GitHub Light, Quiet Light (both light), or GitHub Dark (night mode). The choice is per-user, so everyone can use the look they prefer.
+
 ## Tested environment
 
 - Redmine 6.1 (Propshaft environment)

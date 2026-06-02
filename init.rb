@@ -109,22 +109,42 @@ module RedmineMonacoEditor
     # 送信されるようにする（未チェックだと送られないHTML仕様の回避）。
     def view_my_account_preferences(context = {})
       user = context[:user] || User.current
+      settings = RedmineMonacoEditor::Settings.for_user(user)
       checked = RedmineMonacoEditor::Settings.enabled_for?(user)
+      current_theme = settings['theme'].to_s
+      current_theme = 'github-light' if current_theme.empty? || current_theme == 'vs'
 
       section_label = l('monaco_editor.pref_section')
       enabled_label = l('monaco_editor.pref_enabled')
+      theme_label   = l('monaco_editor.pref_theme')
 
       checkbox = checked ? 'checked="checked"' : ''
 
+      # テーマの選択肢: [value, ラベルのi18nキー]
+      theme_options = [
+        ['github-light', 'theme_github_light'],
+        ['quiet-light',  'theme_quiet_light'],
+        ['github-dark',  'theme_github_dark']
+      ]
+      options_html = theme_options.map do |value, key|
+        sel = (value == current_theme) ? ' selected="selected"' : ''
+        label = ERB::Util.html_escape(l("monaco_editor.#{key}"))
+        "<option value=\"#{value}\"#{sel}>#{label}</option>"
+      end.join
+
       # Redmineの個人設定フォーム内に差し込まれる前提のHTML。
       # name を monaco_settings[...] にすることで params[:monaco_settings] に入る。
-      # hidden(=0) と checkbox(=1) を組にし、OFF時も値が必ず送信されるようにする。
+      # チェックボックスは hidden(=0)+checkbox(=1) でOFF時も値が必ず送信される。
       "<fieldset class=\"box tabular\">" \
       "<legend>#{ERB::Util.html_escape(section_label)}</legend>" \
       "<p>" \
       "<label>#{ERB::Util.html_escape(enabled_label)}</label>" \
       "<input type=\"hidden\" name=\"monaco_settings[enabled]\" value=\"0\" />" \
       "<input type=\"checkbox\" name=\"monaco_settings[enabled]\" value=\"1\" #{checkbox} />" \
+      "</p>" \
+      "<p>" \
+      "<label>#{ERB::Util.html_escape(theme_label)}</label>" \
+      "<select name=\"monaco_settings[theme]\">#{options_html}</select>" \
       "</p>" \
       "</fieldset>".html_safe
     end
