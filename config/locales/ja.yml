@@ -14,6 +14,7 @@ ja:
     mode_split_v_tip: "エディタ＋プレビュー（上下）"
     mode_preview_tip: "プレビューのみ表示"
     outline_tip: "見出しのアウトラインを表示/非表示"
+    fullscreen_tip: "全画面表示の切り替え"
 
     # 装飾ボタン（ツールバー右側）
     bold_tip: "太字 (Ctrl+B)"

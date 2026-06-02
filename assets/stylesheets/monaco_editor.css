@@ -770,3 +770,49 @@ textarea.wiki-edit.monaco-replaced {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============================================================
+   全画面トグル
+   ============================================================ */
+/* 装飾群と全画面ボタンの間を押し広げ、全画面ボタンを右端へ寄せる */
+.monaco-toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 全画面ボタン自体は縮まない（常に表示） */
+.monaco-fullscreen-btn {
+  flex-shrink: 0;
+}
+
+/* 擬似全画面: wrapper を画面いっぱいに固定配置する */
+/* wrapper には高さがインラインstyleで入るため !important で上書きする */
+.monaco-editor-wrapper.monaco-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  z-index: 9999;
+  margin: 0;
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+/* 全画面中はツールバー以外の領域（body）が残り全部を埋めるようにする。
+   wrapper が flex column なので、ツールバー(固定高)以外を body が占める。 */
+.monaco-editor-wrapper.monaco-fullscreen .monaco-editor-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 全画面中は下端リサイズハンドルを隠す（画面いっぱいのため不要） */
+.monaco-editor-wrapper.monaco-fullscreen .monaco-resize-handle {
+  display: none;
+}
+
+/* 全画面中は背面（body）のスクロールを抑止 */
+body.monaco-fullscreen-active {
+  overflow: hidden;
+}

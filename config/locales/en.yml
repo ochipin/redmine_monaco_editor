@@ -14,6 +14,7 @@ en:
     mode_split_v_tip: "Editor + preview (stacked)"
     mode_preview_tip: "Show preview only"
     outline_tip: "Toggle heading outline"
+    fullscreen_tip: "Toggle fullscreen"
 
     # Decoration buttons (right side of the toolbar)
     bold_tip: "Bold (Ctrl+B)"

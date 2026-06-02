@@ -991,6 +991,10 @@
   var ICON_PREVIEW = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 3C4.5 3 1.5 8 1.5 8s3 5 6.5 5 6.5-5 6.5-5-3-5-6.5-5z" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/></svg>';
   var ICON_EDIT = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 12.5V14h1.5l7-7-1.5-1.5-7 7zM13.3 3.7a1 1 0 000-1.4l-1.6-1.6a1 1 0 00-1.4 0l-1.1 1.1 3 3 1.1-1.1z" fill="currentColor"/></svg>';
   var ICON_OUTLINE = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="2" y1="3.5" x2="13" y2="3.5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="10.5" x2="13" y2="10.5" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="14" x2="13" y2="14" stroke="currentColor" stroke-width="1.2"/></svg>';
+  // 全画面（展開）アイコン: 四隅に向かう矢印
+  var ICON_FULLSCREEN = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // 全画面解除（縮小）アイコン: 中央に集まる矢印
+  var ICON_FULLSCREEN_EXIT = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 2v4H2M10 2v4h4M6 14v-4H2M10 14v-4h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   // ---- 装飾ツールバー用SVGアイコン ----
   var ICON_BOLD        = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="2" y="13" font-size="13" font-weight="900" font-family="serif" fill="currentColor">B</text></svg>';
@@ -1240,10 +1244,25 @@
       if (def.sepAfter) { decoToolbar.appendChild(makeDecoSep()); }
     });
 
+    // 全画面トグルボタン（ツールバー最右端に固定）。
+    // 装飾ボタン群は幅が狭いと右から隠れるが、このボタンは別要素として
+    // 最右端に固定するため、常に表示される。
+    var btnFullscreen = document.createElement('button');
+    btnFullscreen.type = 'button';
+    btnFullscreen.className = 'monaco-preview-btn monaco-icon-only monaco-fullscreen-btn';
+    btnFullscreen.innerHTML = ICON_FULLSCREEN;
+    btnFullscreen.title = t('fullscreen_tip', 'Toggle fullscreen');
+
+    // 装飾群と全画面ボタンの間を押し広げるスペーサー（全画面ボタンを右端へ）
+    var toolbarSpacer = document.createElement('span');
+    toolbarSpacer.className = 'monaco-toolbar-spacer';
+
     // ツールバーに組み立て
     toolbar.appendChild(modeGroup);
     toolbar.appendChild(groupSep);
     toolbar.appendChild(decoToolbar);
+    toolbar.appendChild(toolbarSpacer);
+    toolbar.appendChild(btnFullscreen);
 
     // ボディ
     var body = document.createElement('div');
@@ -1463,6 +1482,9 @@
 
     // アウトラインパネルをセットアップ（トグル）
     setupOutline(editor, monacoInstance, body, outlinePane, btnOutline, textFormat);
+
+    // 全画面トグルをセットアップ
+    setupFullscreen(wrapper, btnFullscreen, editor);
 
     // @メンションの補完確定→ログインID置換 と ツールチップをセットアップ
     setupMention(editor, monacoInstance);
@@ -1971,6 +1993,127 @@
   // ============================================================
   // 縦リサイズハンドル（下端をドラッグして高さ変更）
   // ============================================================
+  // ============================================================
+  // 全画面トグル
+  // ============================================================
+  // ディスプレイ全体のフルスクリーン（ブラウザのFullscreen API）で
+  // エディタ(wrapper)だけを全画面表示する。
+  //   - ボタン押下でトグル（Fullscreen APIはユーザー操作起点で発動）
+  //   - ESC はブラウザが自動でフルスクリーン解除（fullscreenchangeで検知）
+  //   - レイアウトは擬似全画面用の .monaco-fullscreen クラスを流用し、
+  //     wrapper を画面いっぱいに広げる
+  //   - Fullscreen API が使えない環境では擬似全画面にフォールバック
+  function setupFullscreen(wrapper, btn, editor) {
+    var pseudo = false; // フォールバック（擬似全画面）中か
+
+    function relayout() {
+      requestAnimationFrame(function () {
+        try { editor.layout(); } catch (e) { /* no-op */ }
+      });
+    }
+
+    // クロスブラウザの requestFullscreen / exitFullscreen / 現在の要素
+    function reqFull(el) {
+      // ユーザー操作コンテキストを確実に引き継ぐため、各APIを直接呼ぶ。
+      if (el.requestFullscreen)        { return el.requestFullscreen(); }
+      if (el.webkitRequestFullscreen)  { return el.webkitRequestFullscreen(); }
+      if (el.mozRequestFullScreen)     { return el.mozRequestFullScreen(); }
+      if (el.msRequestFullscreen)      { return el.msRequestFullscreen(); }
+      return null;
+    }
+    function exitFull() {
+      var fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      return fn ? fn.call(document) : null;
+    }
+    function fullEl() {
+      return document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement || null;
+    }
+    function apiSupported() {
+      return !!(wrapper.requestFullscreen || wrapper.webkitRequestFullscreen || wrapper.mozRequestFullScreen || wrapper.msRequestFullscreen);
+    }
+
+    // 見た目（クラス・アイコン）を全画面状態に合わせる
+    function applyOn() {
+      wrapper.classList.add('monaco-fullscreen');
+      document.body.classList.add('monaco-fullscreen-active');
+      btn.innerHTML = ICON_FULLSCREEN_EXIT;
+      btn.classList.add('active');
+      relayout();
+    }
+    function applyOff() {
+      wrapper.classList.remove('monaco-fullscreen');
+      document.body.classList.remove('monaco-fullscreen-active');
+      btn.innerHTML = ICON_FULLSCREEN;
+      btn.classList.remove('active');
+      relayout();
+    }
+
+    // ---- Fullscreen API 利用時 ----
+    // ブラウザのフルスクリーン状態が変わったらクラスを同期する。
+    // ESCでの解除もここで拾える。
+    function onFsChange() {
+      if (fullEl() === wrapper) {
+        applyOn();
+      } else {
+        applyOff();
+      }
+    }
+
+    // ---- 擬似全画面（フォールバック）用のESCハンドラ ----
+    function onKeydown(e) {
+      if (e.key === 'Escape' && e.keyCode !== 229) {
+        e.preventDefault();
+        e.stopPropagation();
+        exitPseudo();
+      }
+    }
+    function enterPseudo() {
+      if (pseudo) { return; }
+      pseudo = true;
+      applyOn();
+      document.addEventListener('keydown', onKeydown, true);
+    }
+    function exitPseudo() {
+      if (!pseudo) { return; }
+      pseudo = false;
+      applyOff();
+      document.removeEventListener('keydown', onKeydown, true);
+    }
+
+    function toggle() {
+      if (apiSupported()) {
+        // ディスプレイ全体のフルスクリーン
+        if (fullEl() === wrapper) {
+          exitFull();
+        } else {
+          // requestFullscreen は必ず click ハンドラから直接呼ぶ
+          // （ユーザー操作起点として扱われる必要があるため、
+          //   ここで余計なDOM操作やalertを挟まない）。
+          // 見た目の更新は fullscreenchange イベント側に任せる。
+          var p = reqFull(wrapper);
+          if (p && typeof p.catch === 'function') {
+            p.catch(function (err) {
+              // 失敗時のみ擬似全画面にフォールバック
+              if (window.console) { console.warn('[monaco] requestFullscreen failed:', err && err.name, err && err.message); }
+              enterPseudo();
+            });
+          }
+        }
+      } else {
+        // API非対応 → 擬似全画面トグル
+        pseudo ? exitPseudo() : enterPseudo();
+      }
+    }
+
+    // フルスクリーン状態変化イベント（各ベンダープレフィックス）
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    document.addEventListener('mozfullscreenchange', onFsChange);
+    document.addEventListener('MSFullscreenChange', onFsChange);
+
+    btn.addEventListener('click', toggle);
+  }
+
   function addVerticalResizer(wrapper, editor) {
     var handle = document.createElement('div');
     handle.className = 'monaco-resize-handle';
@@ -2928,9 +3071,56 @@
     initEditors();
   }
 
-  // Redmineはturblinksライクなページ遷移を使う場合があるので一応対応
-  document.addEventListener('ajax:complete', function () {
-    setTimeout(initEditors, 100);
-  });
+  // ---- 動的に差し替わる textarea への追従 ----
+  // Redmineは新規チケット作成時にトラッカー/プロジェクトを変更すると、
+  // フォームの一部（説明欄を含む）をAjaxで再描画する。このとき置換済みの
+  // Monacoが捨てられ、純正textareaに戻ってしまう。
+  // イベント（ajax:complete等）は仕組みによって発火しないことがあるため、
+  // MutationObserver でDOMの追加を監視し、未置換のtextareaが現れたら
+  // 初期化し直す。これでどの差し替え方式でも確実に追従できる。
+  var reinitTimer = null;
+  function scheduleReinit() {
+    // 短時間に多数の変更が来てもまとめて1回だけ実行（デバウンス）
+    if (reinitTimer) { clearTimeout(reinitTimer); }
+    reinitTimer = setTimeout(function () {
+      reinitTimer = null;
+      initEditors();
+    }, 150);
+  }
+
+  if (typeof MutationObserver !== 'undefined') {
+    var observer = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var added = mutations[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var node = added[j];
+          if (node.nodeType !== 1) { continue; } // 要素ノードのみ
+          // Monaco自身が生成したDOM（wrapper配下）は無視する。
+          // これを拾うと replaceTextarea → DOM追加 → 再発火 の
+          // 無限ループになりうるため。
+          if (node.closest && node.closest('.monaco-editor-wrapper')) { continue; }
+          // 対象は Redmine の編集用 textarea（特定クラス）のみ。
+          // Monaco内部の隠しtextarea(.inputarea)等は class が異なり拾わない。
+          var sel = 'textarea.wiki-edit, textarea#issue_description, textarea#content_text, textarea.description';
+          if (node.matches && node.matches(sel)) { scheduleReinit(); return; }
+          if (node.querySelector && node.querySelector(sel)) { scheduleReinit(); return; }
+        }
+      }
+    });
+    // body全体の子孫の追加を監視
+    var startObserve = function () {
+      if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startObserve);
+    } else {
+      startObserve();
+    }
+  }
+
+  // 旧来のイベントベースの再初期化も保険として残す
+  document.addEventListener('ajax:complete', scheduleReinit);
 
 })();

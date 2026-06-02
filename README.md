@@ -57,6 +57,9 @@ Each user can pick an editor theme from their "My account" preferences: GitHub L
 **Adjustable font size**
 Each user can also choose the editor font size from their "My account" preferences. Like the other options, it is saved per-user.
 
+**Fullscreen mode**
+A fullscreen button sits at the top-right of the editor toolbar. Click it to expand just the editor to fill the whole screen, so you can focus on writing long documents. Press the button again or hit ESC to return to normal.
+
 ## Tested environment
 
 - Redmine 6.1 (Propshaft environment)
