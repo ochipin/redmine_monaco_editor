@@ -77,3 +77,4 @@ en:
     theme_github_light: "GitHub Light"
     theme_quiet_light: "Quiet Light"
     theme_github_dark: "GitHub Dark"
+    pref_font_size: "Font size"

@@ -117,6 +117,7 @@ module RedmineMonacoEditor
       section_label = l('monaco_editor.pref_section')
       enabled_label = l('monaco_editor.pref_enabled')
       theme_label   = l('monaco_editor.pref_theme')
+      font_label    = l('monaco_editor.pref_font_size')
 
       checkbox = checked ? 'checked="checked"' : ''
 
@@ -126,10 +127,19 @@ module RedmineMonacoEditor
         ['quiet-light',  'theme_quiet_light'],
         ['github-dark',  'theme_github_dark']
       ]
-      options_html = theme_options.map do |value, key|
+      theme_options_html = theme_options.map do |value, key|
         sel = (value == current_theme) ? ' selected="selected"' : ''
         label = ERB::Util.html_escape(l("monaco_editor.#{key}"))
         "<option value=\"#{value}\"#{sel}>#{label}</option>"
+      end.join
+
+      # フォントサイズの選択肢（px）。現在値を選択状態にする。
+      current_font = settings['font_size'].to_i
+      current_font = 14 if current_font <= 0
+      font_sizes = [10, 11, 12, 13, 14, 16, 18, 20, 24]
+      font_options_html = font_sizes.map do |size|
+        sel = (size == current_font) ? ' selected="selected"' : ''
+        "<option value=\"#{size}\"#{sel}>#{size}px</option>"
       end.join
 
       # Redmineの個人設定フォーム内に差し込まれる前提のHTML。
@@ -144,7 +154,11 @@ module RedmineMonacoEditor
       "</p>" \
       "<p>" \
       "<label>#{ERB::Util.html_escape(theme_label)}</label>" \
-      "<select name=\"monaco_settings[theme]\">#{options_html}</select>" \
+      "<select name=\"monaco_settings[theme]\">#{theme_options_html}</select>" \
+      "</p>" \
+      "<p>" \
+      "<label>#{ERB::Util.html_escape(font_label)}</label>" \
+      "<select name=\"monaco_settings[font_size]\">#{font_options_html}</select>" \
       "</p>" \
       "</fieldset>".html_safe
     end

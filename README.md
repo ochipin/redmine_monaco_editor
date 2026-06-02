@@ -54,11 +54,15 @@ For people who prefer the familiar standard editor, each user can choose whether
 **Selectable themes**
 Each user can pick an editor theme from their "My account" preferences: GitHub Light, Quiet Light (both light), or GitHub Dark (night mode). The choice is per-user, so everyone can use the look they prefer.
 
+**Adjustable font size**
+Each user can also choose the editor font size from their "My account" preferences. Like the other options, it is saved per-user.
+
 ## Tested environment
 
 - Redmine 6.1 (Propshaft environment)
 - Text formatting: both Markdown and Textile are supported (select under "Administration > Settings > General")
 - UI language: Japanese and English (follows the Redmine per-user language setting automatically)
+- Bundled Monaco Editor: v0.52.0 (shipped with the plugin; works fully offline)
 
 ## Directory layout
 

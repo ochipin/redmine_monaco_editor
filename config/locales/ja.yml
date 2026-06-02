@@ -77,3 +77,4 @@ ja:
     theme_github_light: "GitHub Light（明るい）"
     theme_quiet_light: "Quiet Light（落ち着いた明るい）"
     theme_github_dark: "GitHub Dark（暗い）"
+    pref_font_size: "フォントサイズ"

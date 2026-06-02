@@ -57,6 +57,18 @@
     return [true, 'true', '1', 1].indexOf(PREFS.enabled) !== -1 || PREFS.enabled === true;
   }
 
+  // 個人設定のフォントサイズを取得する。
+  // 不正値（数値でない・極端な値）は既定14pxにフォールバックし、
+  // 安全な範囲（8〜40px）にクランプする（エディタが壊れないように）。
+  function prefFontSize() {
+    var DEFAULT = 14, MIN = 8, MAX = 40;
+    var v = parseInt(PREFS.font_size, 10);
+    if (isNaN(v)) { return DEFAULT; }
+    if (v < MIN) { return MIN; }
+    if (v > MAX) { return MAX; }
+    return v;
+  }
+
   // ============================================================
   // Monaco ローダー（public直下に配置したvsを参照）
   // ============================================================
@@ -1287,7 +1299,7 @@
       wordWrap: 'on',
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      fontSize: 14,
+      fontSize: prefFontSize(),
       lineHeight: 0, // 0 = 自動計算（VSCode同様 fontSize×1.5 ≒ 21px）
       renderLineHighlight: 'line',
       scrollbar: {
