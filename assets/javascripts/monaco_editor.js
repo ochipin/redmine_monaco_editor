@@ -675,6 +675,43 @@
       });
   }
 
+  // ページ名（Wikiページ）を引数に取るマクロ。括弧内でWikiページ補完を出す。
+  // 小文字で比較する。必要に応じてここに追記すれば対応マクロを増やせる。
+  var WIKI_PAGE_ARG_MACROS = ['include', 'child_pages'];
+
+  // {{include( … や {{child_pages( … の括弧内でWikiページ候補を返す。
+  // 挿入はWikiリンクCompletionと同じ方針:
+  //   同一プロジェクト → ページ名のみ / 別プロジェクト → 識別子:ページ名
+  // 閉じ ")" と "}}" はマクロ側の構造（{{name()}}）が既に持つため、ここでは
+  // ページ名だけを挿入する（重複を避ける）。typed は ( 以降に打った文字。
+  function providePageArg(model, position, typed) {
+    if (!wikiPageListCache || wikiPageListCache.length === 0) {
+      return { suggestions: [] };
+    }
+    var startCol = position.column - typed.length; // ページ名開始位置（(の直後）
+    var range = {
+      startLineNumber: position.lineNumber, startColumn: startCol,
+      endLineNumber: position.lineNumber, endColumn: position.column
+    };
+    var cur = detectCurrentProject();
+
+    var suggestions = wikiPageListCache.map(function (pg) {
+      var sameProject = cur && pg.project_identifier === cur;
+      var linkText = sameProject
+        ? pg.title
+        : (pg.project_identifier + ':' + pg.title);
+      return {
+        label: linkText,
+        kind: window.monaco.languages.CompletionItemKind.Reference,
+        detail: pg.project_name || pg.project_identifier || '',
+        insertText: linkText,
+        filterText: pg.title + ' ' + (pg.project_identifier || ''),
+        range: range
+      };
+    });
+    return { suggestions: suggestions };
+  }
+
   var macroProviderRegistered = false;
 
   function registerMacroCompletion(monacoInstance) {
@@ -687,8 +724,9 @@
     // markdown / textile 両方で効かせる。
     ['markdown', 'textile'].forEach(function (lang) {
       monacoInstance.languages.registerCompletionItemProvider(lang, {
-        // 2文字目の { で発火させる（{{ の検出はprovide側で行う）
-        triggerCharacters: ['{'],
+        // { で発火（{{ の検出はprovide側）。( でも発火させ、ページ名を
+        // 引数に取るマクロ（include/child_pages 等）の括弧内でWikiページ補完を出す。
+        triggerCharacters: ['{', '('],
         provideCompletionItems: function (model, position) {
           if (!macroListCache || macroListCache.length === 0) {
             // まだ取得できていない場合は何も出さない（次の入力で再評価される）
@@ -699,6 +737,16 @@
             startLineNumber: position.lineNumber, startColumn: 1,
             endLineNumber: position.lineNumber, endColumn: position.column
           });
+
+          // --- 先に「ページ名を取るマクロの括弧内か」を判定する ---
+          // 例: {{include(  /  {{child_pages(Foo  のように、対象マクロの
+          // ( の後ろにカーソルがある場合は、Wikiページ候補を出す。
+          // WIKI_PAGE_ARG_MACROS に含まれるマクロ名のときだけ有効。
+          //   pm[1] = マクロ名, pm[2] = ( 以降に打った文字（ページ名の途中）
+          var pm = /\{\{([a-zA-Z0-9_]+)\(([^()]*)$/.exec(lineText);
+          if (pm && WIKI_PAGE_ARG_MACROS.indexOf(pm[1].toLowerCase()) !== -1) {
+            return providePageArg(model, position, pm[2]);
+          }
 
           // カーソル直前の {{<入力中のマクロ名> を検出。
           // 既に開き括弧の後（{{macro( ... ）に入っている場合は出さない。
