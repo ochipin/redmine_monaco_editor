@@ -632,9 +632,6 @@
     });
   }
 
-  // 補完確定後に呼ばれるコマンドID（ログインIDへの置換用）
-  var MENTION_RESOLVE_CMD = 'monacoEditor.resolveMention';
-
 
   // ============================================================
   // {{マクロ}} 入力補完（CompletionItemProvider）
@@ -2207,73 +2204,7 @@
 
   // ============================================================
   // @メンションの確定処理＆ツールチップ
-  // ============================================================
-  // 補完確定後にログインIDへ置換するコマンドをグローバル登録する。
-  // CompletionItem.command から呼べるのは registerCommand で登録した
-  // コマンドのみ（addActionのアクションIDでは "not found" になる）。
-  // 一度だけ登録すればよい。
-  var mentionCommandRegistered = false;
-  function registerMentionResolveCommand(monacoInstance) {
-    if (mentionCommandRegistered) { return; }
-    mentionCommandRegistered = true;
-
-    monacoInstance.editor.registerCommand(
-      MENTION_RESOLVE_CMD,
-      function (accessor, modelUri, numericId, lineNumber, atCol, insertedText) {
-        // modelUri から対象エディタを特定する
-        var editors = monacoInstance.editor.getEditors();
-        var ed = null;
-        for (var i = 0; i < editors.length; i++) {
-          var m = editors[i].getModel();
-          if (m && m.uri && m.uri.toString() === modelUri) { ed = editors[i]; break; }
-        }
-        if (!ed) { return; }
-
-        fetchUserById(numericId).then(function (info) {
-          if (!info || !info.login) { return; }
-          var model = ed.getModel();
-          if (!model) { return; }
-
-          // 置換範囲は「挿入した表示名(insertedText)の長さ」から算出する。
-          // 以前は現在のカーソル位置(ed.getPosition())から endCol を取っていたが、
-          // 別の行に別メンションがあると lineNumber と食い違い、誤った範囲
-          // （他行のメンション）を書き換えてしまう不具合があった。
-          // insertedText は補完で実際に挿入した "@表示名" なので、
-          // atCol からその文字数ぶんが、まさに置換すべき範囲になる。
-          var insLen = (insertedText || '').length;
-          var endCol = atCol + insLen;
-
-          // 念のため、対象範囲の現在のテキストが insertedText と一致するか確認。
-          // ズレている場合（IME確定の差異等）は安全側で何もしない。
-          var lineContent = model.getLineContent(lineNumber);
-          var actual = lineContent.substring(atCol - 1, endCol - 1);
-          if (insertedText && actual !== insertedText) {
-            // フォールバック: 行内で atCol 以降の "@..." を境界まで拾う
-            var tail = lineContent.substring(atCol - 1);
-            var mm = /^@[^\s@]*/.exec(tail);
-            if (mm) { endCol = atCol + mm[0].length; }
-          }
-
-          ed.executeEdits('mention-resolve', [{
-            range: {
-              startLineNumber: lineNumber, startColumn: atCol,
-              endLineNumber: lineNumber, endColumn: endCol
-            },
-            text: '@' + info.login + ' ',
-            forceMoveMarkers: true
-          }]);
-          // カーソルを置換後の末尾へ
-          var newCol = atCol + ('@' + info.login + ' ').length;
-          ed.setPosition({ lineNumber: lineNumber, column: newCol });
-        });
-      }
-    );
-  }
-
   function setupMention(editor, monacoInstance) {
-    // グローバルコマンド（置換処理）を登録（初回のみ）
-    registerMentionResolveCommand(monacoInstance);
-
     // @ログインID のツールチップ（キャレット連動。#xxx のユーザー版）
     setupMentionTooltip(editor, monacoInstance);
   }

@@ -56,8 +56,10 @@ class MonacoUsersController < ApplicationController
         []
       end
 
-    # User 以外（Group等）を除外し、ログイン可能な実ユーザーに絞る。
-    members.select! { |u| u.is_a?(User) }
+    # User 以外（Group等）を除外し、かつ active なユーザーだけに絞る。
+    # ロック済み(STATUS_LOCKED)や登録待ち(STATUS_REGISTERED)のユーザーは
+    # ログインできず、メンションしても通知が届かないため候補から外す。
+    members.select! { |u| u.is_a?(User) && u.active? }
 
     # 重複排除して id/login/name を返す。
     seen = {}

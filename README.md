@@ -31,7 +31,7 @@ Show a list of headings in a side panel. The hierarchy is expressed with indenta
 Hover over a ticket reference such as `#1010` or `#89-3` and a tooltip gently shows that ticket's information. You can check the content without opening the link.
 
 **@mention completion**
-Type `@` to bring up member candidates. Fuzzy matching is supported, and even if you pick by display name it is automatically converted to the internal login ID, so you can enter mentions accurately and quickly. Tooltips are shown for candidates and confirmed mentions too.
+Type `@` to bring up project member candidates. Fuzzy matching is supported, and even if you pick by display name it is inserted in the login-ID form (`@login`) that Redmine recognizes, so you can enter mentions accurately and quickly. Hovering over a confirmed mention shows that person's info in a tooltip.
 
 **Formatting toolbar**
 Insert bold, italic, underline, strikethrough, inline code, headings (H1–H4), bulleted lists, numbered lists, quotes, and code blocks from buttons. They work both by wrapping a selection and by inserting at the cursor. Keyboard shortcuts `Ctrl+B` (bold) and `Ctrl+I` (italic) are supported as well.
@@ -44,6 +44,15 @@ Pick an image attached to the ticket/wiki from a thumbnail list and insert it. I
 
 **File link insertion**
 Insert a link to an attachment (`attachment:filename`) by picking it from a list. Each file type — Excel, Word, PDF, PowerPoint, image, code, config file, and more — gets its own icon so you can tell them apart at a glance. Hovering shows the file name, description, and date.
+
+**Macro completion**
+Type `{{` to bring up the macros available in your Redmine. In addition to built-in macros like `toc`, `include`, `collapse`, and `thumbnail`, macros added by other plugins (DMSF, drawio, etc.) also appear automatically. Selecting a candidate shows the macro's description on the side, so you won't get stuck on argument syntax. You can also trigger it from the "Insert macro" toolbar button.
+
+**Wiki link completion**
+Type `[[` to bring up the wiki pages you can view. Pages in other projects are completed in the `[[project-identifier:page-name]]` form automatically. Wiki pages are also suggested inside the parentheses of macros that take a page name, such as `{{include(` and `{{child_pages(`. You can also trigger it from the "Insert wiki link" toolbar button.
+
+**Thumbnail zoom in preview**
+Thumbnails inserted with `{{thumbnail}}` can be clicked in the preview to zoom in place. It does not navigate to the original image page, so you can check the image larger while keeping your work. Close it with a background click, the × button, or the ESC key.
 
 **Markdown and Textile support**
 Works whether Redmine is set to Markdown or Textile. The toolbar buttons automatically emit the correct markup for the active format, so you get the same operation feel in either environment.
@@ -72,7 +81,13 @@ A fullscreen button sits at the top-right of the editor toolbar. Click it to exp
 ```
 redmine_monaco_editor/
 ├── init.rb                          # Plugin registration + ViewHook (injects the i18n dictionary)
+├── app/
+│   └── controllers/
+│       ├── monaco_macros_controller.rb     # Macro list API (for {{ completion)
+│       ├── monaco_wiki_pages_controller.rb # Wiki page list API (for [[ completion)
+│       └── monaco_users_controller.rb      # Member list API (for @ completion)
 ├── config/
+│   ├── routes.rb                    # Routes for the APIs above (/monaco_editor/...)
 │   └── locales/
 │       ├── en.yml                   # UI strings (English)
 │       └── ja.yml                   # UI strings (Japanese)

@@ -3,8 +3,8 @@
 # ============================================================
 # プラグイン独自のトップレベルルート。
 #   GET /monaco_editor/macros        → JSON でマクロ一覧
-#   GET /monaco_editor/macros.json   → 同上（拡張子つき）
 #   GET /monaco_editor/wiki_pages    → JSON で閲覧可能なWikiページ一覧
+#   GET /monaco_editor/users         → JSON でプロジェクトメンバー一覧（@補完用）
 #
 # Redmine 本体や他プラグインのルートと衝突しないよう、
 # /monaco_editor/ 名前空間配下にまとめる。
