@@ -33,6 +33,8 @@ ja:
     table_tip: "表を挿入"
     image_tip: "画像を挿入"
     file_link_tip: "ファイルリンクを挿入"
+    macro_tip: "マクロを挿入 {{ }}"
+    wiki_link_tip: "Wikiリンクを挿入 [[ ]]"
 
     # 選択範囲を囲むときのプレースホルダ
     placeholder_text: "テキスト"

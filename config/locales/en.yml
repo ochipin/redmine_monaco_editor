@@ -33,6 +33,8 @@ en:
     table_tip: "Insert table"
     image_tip: "Insert image"
     file_link_tip: "Insert file link"
+    macro_tip: "Insert macro {{ }}"
+    wiki_link_tip: "Insert wiki link [[ ]]"
 
     # Placeholders used when wrapping a selection
     placeholder_text: "text"

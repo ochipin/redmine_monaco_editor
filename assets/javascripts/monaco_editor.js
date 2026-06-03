@@ -280,6 +280,7 @@
         registerCustomThemes(window.monaco);
         registerMentionCompletion(window.monaco);
         registerMacroCompletion(window.monaco);
+        registerWikiLinkCompletion(window.monaco);
         done();
       }, function () {
         // 一部失敗しても続行（存在しない言語があっても無視）
@@ -289,6 +290,7 @@
         registerCustomThemes(window.monaco);
         registerMentionCompletion(window.monaco);
         registerMacroCompletion(window.monaco);
+        registerWikiLinkCompletion(window.monaco);
         done();
       });
     } catch (e) {
@@ -749,6 +751,137 @@
                 monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               // typed が空でも全候補を出しつつ、入力に応じて絞り込む
               filterText: macro.name,
+              range: range
+            };
+          });
+
+          return { suggestions: suggestions };
+        }
+      });
+    });
+  }
+
+  // ============================================================
+  // [[Wikiリンク]] 入力補完（CompletionItemProvider）
+  // ============================================================
+  // [[ を打つと、閲覧可能な全プロジェクトのWikiページ名を候補に出す。
+  // 候補は起動時に1回だけ /monaco_editor/wiki_pages から取得しキャッシュ。
+  //
+  // Redmineの記法:
+  //   [[ページ名]]                  … 同一プロジェクト内のページ
+  //   [[ページ名|表示名]]            … 別名表示
+  //   [[プロジェクト識別子:ページ名]] … 別プロジェクトのページ
+  // 全プロジェクト対象なので、現在のプロジェクト以外は project:title 形式で
+  // 挿入する（同一プロジェクトのページは title のみ）。
+
+  // Wikiページ一覧のキャッシュ。null=未取得 / [] =取得済み(空) / [...]=取得済み。
+  var wikiPageListCache = null;
+  var wikiFetchStarted = false;
+  // 現在のプロジェクト識別子（挿入形を project:title にするか title のみかの判定用）
+  var currentProjectIdentifier = null;
+
+  // 現在のプロジェクト識別子を URL から推定する（/projects/<id>/...）。
+  function detectCurrentProject() {
+    if (currentProjectIdentifier !== null) { return currentProjectIdentifier; }
+    var m = /\/projects\/([^\/]+)/.exec(window.location.pathname || '');
+    currentProjectIdentifier = m ? decodeURIComponent(m[1]) : '';
+    return currentProjectIdentifier;
+  }
+
+  function prefetchWikiPages() {
+    if (wikiFetchStarted) { return; }
+    wikiFetchStarted = true;
+
+    var proj = detectCurrentProject();
+    var url = '/monaco_editor/wiki_pages' +
+      (proj ? ('?project_id=' + encodeURIComponent(proj)) : '');
+
+    fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin'
+    })
+      .then(function (res) {
+        if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        return res.json();
+      })
+      .then(function (list) {
+        wikiPageListCache = Array.isArray(list) ? list : [];
+      })
+      .catch(function () {
+        wikiPageListCache = [];
+      });
+  }
+
+  var wikiProviderRegistered = false;
+
+  function registerWikiLinkCompletion(monacoInstance) {
+    if (wikiProviderRegistered) { return; }
+    wikiProviderRegistered = true;
+
+    prefetchWikiPages();
+
+    ['markdown', 'textile'].forEach(function (lang) {
+      monacoInstance.languages.registerCompletionItemProvider(lang, {
+        // 2文字目の [ で発火（[[ の検出は provide 側で行う）
+        triggerCharacters: ['['],
+        provideCompletionItems: function (model, position) {
+          if (!wikiPageListCache || wikiPageListCache.length === 0) {
+            return { suggestions: [] };
+          }
+
+          var lineText = model.getValueInRange({
+            startLineNumber: position.lineNumber, startColumn: 1,
+            endLineNumber: position.lineNumber, endColumn: position.column
+          });
+
+          // カーソル直前の [[<入力中> を検出。
+          // 既に | が入っている（[[page|...）場合は表示名入力中なので出さない。
+          var m = /\[\[([^\[\]\|]*)$/.exec(lineText);
+          if (!m) { return { suggestions: [] }; }
+
+          var typed = m[1];
+          var startCol = position.column - typed.length;
+
+          var range = {
+            startLineNumber: position.lineNumber, startColumn: startCol,
+            endLineNumber: position.lineNumber, endColumn: position.column
+          };
+
+          // カーソル直後に既に "]]" があるか（重複挿入の防止）
+          var lineMax = model.getLineMaxColumn(position.lineNumber);
+          var after = model.getValueInRange({
+            startLineNumber: position.lineNumber, startColumn: position.column,
+            endLineNumber: position.lineNumber, endColumn: lineMax
+          });
+          var hasClosing = /^\]\]/.test(after);
+
+          var cur = detectCurrentProject();
+
+          var suggestions = wikiPageListCache.map(function (pg) {
+            // 同一プロジェクトのページは title のみ、別プロジェクトは
+            // project_identifier:title 形式で挿入する。
+            var sameProject = cur && pg.project_identifier === cur;
+            var linkText = sameProject
+              ? pg.title
+              : (pg.project_identifier + ':' + pg.title);
+
+            var closing = hasClosing ? '' : ']]';
+            var insert = linkText + closing;
+
+            // ラベルは [[...]] で見せる。別プロジェクトは識別子つき。
+            var label = '[[' + linkText + ']]';
+            // 候補右の説明にプロジェクト名を出す（どのプロジェクトのページか）
+            var detail = pg.project_name || pg.project_identifier || '';
+
+            return {
+              label: label,
+              kind: monacoInstance.languages.CompletionItemKind.Reference,
+              detail: detail,
+              // [[ は入力済みなので、リンク本体以降だけ挿入する
+              insertText: insert,
+              // 入力中文字での絞り込み対象（ページ名＋プロジェクト識別子）
+              filterText: pg.title + ' ' + (pg.project_identifier || ''),
               range: range
             };
           });
@@ -1319,6 +1452,10 @@
   var ICON_IMAGE       = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="6" r="1.5" stroke="currentColor" stroke-width="1.1"/><polyline points="1,12 5,8 8,11 11,8 15,12" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linejoin="round"/></svg>';
   // ツールバーの「ファイルリンク」ボタン用（クリップ/添付アイコン）
   var ICON_ATTACH      = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 7l-5.5 5.5a2.5 2.5 0 01-3.5-3.5L9 3.5a1.5 1.5 0 012 2L5.5 11a0.5 0.5 0 01-.7-.7L9.5 5.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // ツールバーの「マクロ挿入」ボタン用（二重波括弧 {{ }} を象ったアイコン）
+  var ICON_MACRO       = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 2.5C4.5 2.5 4.5 5 3 5c1.5 0 1.5 2.5 1.5 4.5S4.5 13.5 3 13.5" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 2.5c1.5 0 1.5 2.5 3 2.5-1.5 0-1.5 2.5-1.5 4.5s0 4 1.5 4" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(0,0)"/></svg>';
+  // ツールバーの「Wikiリンク挿入」ボタン用（二重角括弧 [[ ]] を象ったアイコン）
+  var ICON_WIKILINK    = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="6,3 3,3 3,13 6,13" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,3 4.5,3 4.5,13 5,13" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(1.5,0)"/><polyline points="10,3 13,3 13,13 10,13" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polyline points="11,3 11.5,3 11.5,13 11,13" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1.5,0)"/></svg>';
 
   // ---- ファイル種別アイコン（ファイルリンクのリスト用、24x24 width=18） ----
   // 各種別を色分けしたバッジ風アイコンで視認性を上げる
@@ -1535,7 +1672,9 @@
       { key: 'codeBlock',  icon: ICON_CODE_BLOCK,  title: t('code_block_tip', 'Code block'), sepAfter: true },
       { key: 'table',      icon: ICON_TABLE,       title: t('table_tip', 'Insert table') },
       { key: 'image',      icon: ICON_IMAGE,       title: t('image_tip', 'Insert image') },
-      { key: 'fileLink',   icon: ICON_ATTACH,      title: t('file_link_tip', 'Insert file link') }
+      { key: 'fileLink',   icon: ICON_ATTACH,      title: t('file_link_tip', 'Insert file link'), sepAfter: true },
+      { key: 'macro',      icon: ICON_MACRO,       title: t('macro_tip', 'Insert macro {{ }}') },
+      { key: 'wikiLink',   icon: ICON_WIKILINK,    title: t('wiki_link_tip', 'Insert wiki link [[ ]]') }
     ];
 
     // 定義から実ボタンを生成し、key→要素 のマップ（decoBtns）に格納しつつ
@@ -2902,6 +3041,33 @@
     setupTableGridPicker(btns.table, editor, textarea);
     setupImagePicker(btns.image, editor, textarea);
     setupFileLinkPicker(btns.fileLink, editor, textarea);
+
+    // マクロ / Wikiリンク挿入ボタン:
+    // カーソル位置にトリガー文字（{{ または [[）を挿入し、すぐ補完を開く。
+    // 補完プロバイダ側が {{ / [[ を検出して候補を出すので、ボタン1つで
+    // 「トリガー入力 → 候補表示」までを一気に行える。
+    function insertTriggerAndSuggest(openText) {
+      var sel = editor.getSelection();
+      // 選択範囲（無ければカーソル位置）へ openText を挿入する。
+      editor.executeEdits('monaco-insert-trigger', [{
+        range: sel,
+        text: openText,
+        forceMoveMarkers: true
+      }]);
+      editor.focus();
+      // 挿入直後の位置で補完を起動。executeEdits 後にカーソルは
+      // 挿入文字列の末尾へ移動しているので、そのまま triggerSuggest でよい。
+      // 描画完了を待ってから起動すると確実。
+      setTimeout(function () {
+        editor.trigger('monaco-toolbar', 'editor.action.triggerSuggest', {});
+      }, 0);
+    }
+    btns.macro.addEventListener('click', function () {
+      insertTriggerAndSuggest('{{');
+    });
+    btns.wikiLink.addEventListener('click', function () {
+      insertTriggerAndSuggest('[[');
+    });
 
     // Ctrl+B / Ctrl+I のキーボードショートカット
     editor.addCommand(
