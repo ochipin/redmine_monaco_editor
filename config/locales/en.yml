@@ -55,6 +55,41 @@ en:
     table_insert: "Insert table"
     table_col_prefix: "Col"
 
+    # Table Builder
+    table_builder_tip: "Open table builder"
+    tb_tab_body: "Body"
+    tb_table_name: "Table"
+    tb_new_tab: "New table"
+    tb_close_tab: "Close tab"
+    tb_add_row: "Add row"
+    tb_add_col: "Add column"
+    tb_del_row: "Delete row"
+    tb_del_col: "Delete column"
+    tb_insert_md: "Insert as Markdown"
+    tb_insert_textile: "Insert as Textile"
+    tb_update: "Update"
+    tb_update_tip: "Write changes back to the original table"
+    tb_copy_table: "Copy table"
+    tb_undo: "Undo"
+    tb_redo: "Redo"
+    tb_copy_table_tip: "Copy this table to the clipboard (paste it into the body)"
+    tb_copied: "Table copied. Press Ctrl+V where you want to paste it in the body."
+    tb_copy_failed: "Copy failed. Please select the table and copy it manually."
+    tb_glyph_tip: "Edit in table builder"
+    tb_confirm_apply: "Apply changes to the original table?\nChoosing Cancel will discard the changes."
+    tb_conflict: |
+      This table has been modified in the body text, so it cannot be updated.
+
+      If you need the contents of this table builder, select the whole table (click the top-left corner), copy it, and save it elsewhere.
+      Then close this editing tab and reopen the latest table from the body to edit it again.
+    tb_conflict_close: |
+      This table has been modified in the body text, so the changes could not be applied.
+
+      Closing this tab will lose your edits. If you need them, copy the table and save it elsewhere before closing.
+    tb_gone: |
+      The target table could not be found in the body (it may have been deleted).
+      Close this editing tab and, if needed, insert it into the body anew.
+
     # Image picker
     image_from_attachments: "Insert from attachments"
     image_other_files: "Other files"

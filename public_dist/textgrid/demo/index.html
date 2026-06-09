@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<!--
+  textgrid 単体動作確認用デモ
+  ------------------------------------------------------------
+  ブラウザで目視確認するためのハーネス。
+  使い方（ESM import のため HTTP 配信が必須）:
+    cd <textgrid のルート>
+    python3 -m http.server 8000
+    → http://localhost:8000/demo/
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>textgrid Demo</title>
+<link rel="stylesheet" href="../styles/textgrid.css">
+<style>
+  body { font-family: sans-serif; margin: 24px; color: #222; }
+  .format-bar {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: #f4f7fa; border: 1px solid #dde3ea; border-radius: 6px;
+    font-size: 14px;
+  }
+  .format-bar label { cursor: pointer; }
+  .format-bar input[type="radio"] { vertical-align: middle; margin-right: 4px; }
+  .format-bar .hint { color: #666; font-size: 12px; margin-left: auto; }
+  .monaco-editor-wrapper {
+    position: relative; border: 1px solid #ccc; border-radius: 4px;
+    height: 520px; background: #fff; overflow: hidden;
+  }
+  .demo-toolbar {
+    height: 40px; display: flex; align-items: center; gap: 8px;
+    padding: 0 10px; border-bottom: 1px solid #eee; background: #fafafa;
+  }
+  .demo-toolbar button { padding: 4px 10px; cursor: pointer; }
+  .demo-editor {
+    position: absolute; left: 0; right: 0; top: 40px; bottom: 0;
+    padding: 12px; font-family: monospace; white-space: pre-wrap;
+    overflow: auto; color: #333;
+  }
+  h2 { font-size: 16px; }
+  pre#out {
+    background: #1e1e1e; color: #d4d4d4;
+    padding: 12px; border-radius: 6px;
+    min-height: 60px; white-space: pre-wrap; font-size: 13px;
+  }
+  .note {
+    color: #555; font-size: 13px; line-height: 1.6;
+    background: #fffbe6; border: 1px solid #f0d878; border-radius: 4px;
+    padding: 10px 14px; margin: 8px 0 16px;
+  }
+</style>
+</head>
+<body>
+  <h2>textgrid — 単体動作確認</h2>
+  <p>表ビルダーの新規作成・既存表編集（バインド）・コピー動作・Undo/Redo・装飾・結合などを目視で確認できます。</p>
+
+  <div class="format-bar">
+    <strong>フォーマット:</strong>
+    <label><input type="radio" name="fmt" value="markdown" checked> Markdown</label>
+    <label><input type="radio" name="fmt" value="textile"> Textile</label>
+    <span class="hint">※ Textile では セル装飾（背景色・太字・斜体・下線）と セル結合 が使えます</span>
+  </div>
+
+  <div class="note" id="fmtNote"></div>
+
+  <div class="monaco-editor-wrapper" id="wrapper">
+    <div class="demo-toolbar">
+      <button id="newBtn">新規（表ビルダーを開く）</button>
+      <button id="editBtn">既存表を編集（バインド）</button>
+      <button id="closeBtn">表ビルダーを閉じる</button>
+    </div>
+    <div class="demo-editor" id="editor"></div>
+  </div>
+
+  <h2 style="margin-top:24px;">「表をコピー」した時のクリップボード内容</h2>
+  <pre id="out">（まだコピーされていません）</pre>
+
+  <script type="module">
+    import { initTableBuilder } from '../src/index.js';
+
+    const wrapper = document.getElementById('wrapper');
+    const out = document.getElementById('out');
+    const editorEl = document.getElementById('editor');
+    const fmtNote = document.getElementById('fmtNote');
+
+    // フォーマット別の初期本文。
+    // Markdown版（装飾・結合なしのプレーンな表）と
+    // Textile版（装飾・結合つき、Textileの色んな機能のサンプル）を用意。
+    const SAMPLE_MARKDOWN =
+      '| テスト | テスト名 | ID | 日時 |\n' +
+      '| --- | --- | --- | --- |\n' +
+      '| 1-b | ○○のテスト | 100 | 2026-09-01 |\n' +
+      '| 2-c | △△のテスト | 200 | 2026-09-02 |';
+
+    const SAMPLE_TEXTILE =
+      '|_. 項目 |_. 状態 |_. 担当 |_. 期限 |\n' +
+      '|\\2{background:#cfc}. *結合セル* | 完了 | 田中 |\n' +
+      '|  | 進行中 | 佐藤 | 2026-10-01 |\n' +
+      '| 設計 | {background:#ffd}._斜体_ | 鈴木 | 2026-09-15 |\n' +
+      '| 実装 | 未着手 | +下線+ | 2026-11-30 |';
+
+    let currentFormat = 'markdown';
+    let bodyText = SAMPLE_MARKDOWN;
+    let api = null;
+
+    function renderBody() { editorEl.textContent = bodyText; }
+    function updateNote() {
+      if (currentFormat === 'textile') {
+        fmtNote.innerHTML =
+          '<strong>Textile モード</strong>: ' +
+          'セルを範囲選択して右クリック → 「セルを結合」、' +
+          'セル右クリック → 「セル装飾」 で背景色・太字・斜体・下線が使えます。';
+        fmtNote.style.display = '';
+      } else {
+        fmtNote.innerHTML =
+          '<strong>Markdown モード</strong>: ' +
+          'セル装飾は揃え（左・中央・右）のみ。背景色や結合は Textile モードで試してください。';
+        fmtNote.style.display = '';
+      }
+    }
+
+    // textgrid を作る（または作り直す）。フォーマット切り替え時は destroy → 再init。
+    function buildApi() {
+      if (api) { api.destroy(); }
+      api = initTableBuilder({
+        wrapper,
+        format: currentFormat,
+        t: (k, f) => f,
+        // 「表をコピー」ボタンが押された時の挙動。実環境では navigator.clipboard 等。
+        // デモではテキストをそのまま画面下に表示する。
+        copy: (text) => {
+          out.textContent = text;
+          // ついでに本物のクリップボードにも入れておく（ブラウザが許せば）
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).catch(() => {});
+          }
+        },
+        // 表ビルダーを閉じて本文に戻る時。
+        showEditor: () => { renderBody(); },
+      });
+    }
+
+    // 初期化
+    renderBody();
+    updateNote();
+    buildApi();
+
+    // フォーマット切り替え
+    document.querySelectorAll('input[name="fmt"]').forEach((r) => {
+      r.addEventListener('change', (e) => {
+        currentFormat = e.target.value;
+        bodyText = (currentFormat === 'textile') ? SAMPLE_TEXTILE : SAMPLE_MARKDOWN;
+        renderBody();
+        updateNote();
+        buildApi();
+      });
+    });
+
+    document.getElementById('newBtn').addEventListener('click', () => api.open());
+
+    document.getElementById('editBtn').addEventListener('click', () => {
+      api.openForText(bodyText, currentFormat, (newText) => {
+        bodyText = newText;
+        renderBody();
+        return { ok: true };
+      }, 'demo-block-' + currentFormat);
+    });
+
+    document.getElementById('closeBtn').addEventListener('click', () => api.showBody());
+  </script>
+</body>
+</html>

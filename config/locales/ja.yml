@@ -55,6 +55,41 @@ ja:
     table_insert: "表を挿入"
     table_col_prefix: "列"
 
+    # 表ビルダー（Table Builder）
+    table_builder_tip: "表ビルダーを開く"
+    tb_tab_body: "本文"
+    tb_table_name: "表"
+    tb_new_tab: "新しい表"
+    tb_close_tab: "タブを閉じる"
+    tb_add_row: "行追加"
+    tb_add_col: "列追加"
+    tb_del_row: "行削除"
+    tb_del_col: "列削除"
+    tb_insert_md: "Markdownで挿入"
+    tb_insert_textile: "Textileで挿入"
+    tb_update: "更新"
+    tb_update_tip: "編集内容を元の表へ書き戻す"
+    tb_copy_table: "表をコピー"
+    tb_undo: "元に戻す"
+    tb_redo: "やり直す"
+    tb_copy_table_tip: "この表をクリップボードにコピー（本文に貼り付けて使う）"
+    tb_copied: "表をコピーしました。本文の貼り付けたい位置で Ctrl+V してください。"
+    tb_copy_failed: "コピーに失敗しました。表を範囲選択して手動でコピーしてください。"
+    tb_glyph_tip: "表ビルダーで編集"
+    tb_confirm_apply: "編集内容を元の表へ反映しますか？\n「キャンセル」を選ぶと変更は破棄されます。"
+    tb_conflict: |
+      本文側でこの表が変更されているため、更新できません。
+
+      この表ビルダーの内容が必要な場合は、表を全選択（左上の角をクリック）してコピーし、別の場所へ退避してください。
+      その後この編集タブを閉じ、本文の最新の表をもう一度開いて編集し直してください。
+    tb_conflict_close: |
+      本文側でこの表が変更されているため、反映できませんでした。
+
+      このタブを閉じると編集内容は失われます。必要な場合は表をコピーして退避してから閉じてください。
+    tb_gone: |
+      書き戻し先の表が本文から見つかりません（削除された可能性があります）。
+      この編集タブを閉じ、必要なら本文へ新規に挿入し直してください。
+
     # 画像ピッカー
     image_from_attachments: "添付ファイルから挿入"
     image_other_files: "その他のファイル"

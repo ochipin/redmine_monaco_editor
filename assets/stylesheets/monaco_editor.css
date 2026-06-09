@@ -927,3 +927,113 @@ body.monaco-fullscreen-active {
   /* 実際のウィジェットはクリック/ホバー可能に戻す */
   pointer-events: auto;
 }
+@keyframes mteTbFlash {
+  0%   { background: #7fd1a3; }
+  100% { background: transparent; }
+}
+
+/* glyph margin 自体が幅0に潰れるのを防ぐ（行番号offでも領域を確保）。 */
+.monaco-editor .glyph-margin { width: 22px !important; }
+.monaco-editor .margin-view-overlays .cgmr { width: 22px !important; }
+
+/* ============================================================
+   Monaco エディタのホバー表示
+   ------------------------------------------------------------
+   実機 DOM は ".monaco-hover" を使う（Monaco の現行バージョン）。
+   - 短いメッセージ（glyph margin の「表ビルダーで編集」等）でも
+     padding と min-width のせいで背景領域が長く見えていたのを縮める
+   - .monaco-hover-content / .hover-row / .hover-contents の余白も
+     合わせて控えめにする
+   - max-width / min-width はそれぞれ控え、長文のホバーは折り返し
+     せず内容に合わせて伸びるよう min-width: 0
+   - 内側に <p> がある場合、デフォルトのブラウザマージンが効いて
+     縦に空白ができるので margin: 0 にする
+   ============================================================ */
+.monaco-hover {
+  padding: 2px 4px !important;
+  min-width: 0 !important;
+}
+.monaco-hover .monaco-hover-content,
+.monaco-hover .hover-row,
+.monaco-hover .hover-contents,
+.monaco-hover .rendered-markdown {
+  padding: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+}
+.monaco-hover .rendered-markdown p {
+  margin: 2px 0 !important;
+}
+
+/* ============================================================
+   Monaco エディタの補完候補（suggestWidget）のドキュメントペイン
+   ------------------------------------------------------------
+   標準では幅が狭く、Description テキストが縦長に折り返されて読みにくい
+   （画像で報告された "tipバナーを表示する" や {{child_pages}} の説明が
+   無駄に縦長になる症状）。
+   - .details (ドキュメントペイン) に min-width を確保
+   - 中の <p> マージンを詰めて余白を抑える
+   ============================================================ */
+.monaco-editor .suggest-widget .details {
+  min-width: 360px;
+}
+.monaco-editor .suggest-widget .details .docs {
+  padding: 6px 10px !important;
+}
+.monaco-editor .suggest-widget .details .docs p,
+.monaco-editor .suggest-widget .details .rendered-markdown p {
+  margin: 2px 0 !important;
+}
+/* 候補リスト側の .docs（インラインで出る短い説明）も詰める */
+.monaco-editor .suggest-widget .monaco-list-row .docs {
+  padding: 2px 6px !important;
+}
+
+/* ============================================================
+   表ビルダー: 既存表の glyph margin アイコン
+   ------------------------------------------------------------
+   本文中の表ブロック先頭行の glyph margin に表示する「表ビルダーで
+   編集」アイコン。クリックでその表を表ビルダー (textgrid) へ読み込む。
+   この CSS は textgrid ライブラリの一部ではなく、Redmine プラグイン
+   固有の Monaco 連携 UI なので、ここに置く。
+   ============================================================ */
+.mte-tb-glyph {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'><rect x='1.5' y='2.5' width='13' height='11' rx='1.2' stroke='%234a7' stroke-width='1.2'/><line x1='1.5' y1='6' x2='14.5' y2='6' stroke='%234a7' stroke-width='1.2'/><line x1='6' y1='2.5' x2='6' y2='13.5' stroke='%234a7' stroke-width='1'/><line x1='10.5' y1='2.5' x2='10.5' y2='13.5' stroke='%234a7' stroke-width='1'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 16px 16px;
+  width: 18px !important;
+  height: 18px !important;
+  margin-left: 2px;
+  opacity: 0.6;
+  transition: opacity 0.12s ease;
+}
+.mte-tb-glyph:hover { opacity: 1; }
+
+/* ============================================================
+   表ビルダー: コピー完了などの軽量トースト通知
+   ------------------------------------------------------------
+   textgrid 外部の表示なので Redmine プラグイン側で定義。
+   ============================================================ */
+.mte-tb-toast {
+  position: fixed;
+  right: 20px; bottom: 20px;
+  z-index: 100001;
+  max-width: 360px;
+  background: #2e8b57;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.22);
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.mte-tb-toast.mte-tb-toast-show {
+  opacity: 1;
+  transform: translateY(0);
+}

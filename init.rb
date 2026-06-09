@@ -5,7 +5,7 @@ Redmine::Plugin.register :redmine_monaco_editor do
   name        'Redmine Monaco Editor'
   author      'Suguru Ochiai'
   description 'Replaces the default Redmine text editor with Monaco Editor (VS Code engine) with Markdown syntax highlighting and side-by-side preview.'
-  version     '0.4.4'
+  version     '0.10.0'
   requires_redmine version_or_higher: '6.0.0'
 end
 
@@ -65,6 +65,13 @@ module RedmineMonacoEditor
       preview_loading preview_failed preview_url_missing
       outline_empty resize_tip
       table_insert table_col_prefix
+      table_builder_tip tb_tab_body tb_table_name tb_new_tab tb_close_tab
+      tb_add_row tb_add_col tb_del_row tb_del_col
+      tb_insert_md tb_insert_textile
+      tb_update tb_update_tip tb_glyph_tip tb_confirm_apply
+      tb_conflict tb_conflict_close tb_gone
+      tb_copy_table tb_copy_table_tip tb_copied tb_copy_failed
+      tb_undo tb_redo
       image_from_attachments image_other_files image_manual_label
       image_manual_placeholder insert
       filelink_title filelink_manual_label filelink_manual_placeholder
@@ -96,6 +103,10 @@ module RedmineMonacoEditor
          "</script>").html_safe
 
       stylesheet_link_tag('monaco_editor', plugin: 'redmine_monaco_editor') +
+      # 表ビルダーUI（textgrid）のスタイル。entrypoint.sh が public_dist の
+      # 中身を public/monaco_assets/ に同期するため、ブラウザからは
+      # /monaco_assets/textgrid/styles/textgrid.css でアクセスできる。
+      %|<link rel="stylesheet" href="/monaco_assets/textgrid/styles/textgrid.css">|.html_safe +
       data_script +
       javascript_include_tag('monaco_editor', plugin: 'redmine_monaco_editor')
     end

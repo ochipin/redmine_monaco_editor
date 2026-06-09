@@ -1630,6 +1630,10 @@
   var ICON_BLOCKQUOTE  = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="3" height="12" rx="1.5" fill="currentColor" opacity="0.35"/><line x1="7" y1="5" x2="14" y2="5" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="11" x2="14" y2="11" stroke="currentColor" stroke-width="1.3"/></svg>';
   var ICON_CODE_BLOCK  = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><polyline points="5,6 3,8 5,10" stroke="currentColor" stroke-width="1.2" fill="none"/><polyline points="11,6 13,8 11,10" stroke="currentColor" stroke-width="1.2" fill="none"/><line x1="7" y1="6" x2="9" y2="10" stroke="currentColor" stroke-width="1.2"/></svg>';
   var ICON_TABLE       = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="2" x2="6" y2="14" stroke="currentColor" stroke-width="1"/><line x1="11" y1="2" x2="11" y2="14" stroke="currentColor" stroke-width="1"/></svg>';
+  // 表ビルダー（Excelライクな表編集UIを開く）ボタン用アイコン。
+  // 既存の「表挿入(ICON_TABLE)」とは別機能。罫線入りの表に編集ペン先を重ねた形。
+  var ICON_TABLE_BUILDER = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="2" x2="6" y2="14" stroke="currentColor" stroke-width="1"/><line x1="11" y1="2" x2="11" y2="14" stroke="currentColor" stroke-width="1"/><rect x="7" y="7.5" width="6.5" height="6.5" rx="1" fill="var(--mte-toolbar-bg, #fff)"/><path d="M9 12.5l3-3 1 1-3 3H9v-1z" fill="currentColor"/></svg>';
+
   var ICON_IMAGE       = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="6" r="1.5" stroke="currentColor" stroke-width="1.1"/><polyline points="1,12 5,8 8,11 11,8 15,12" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linejoin="round"/></svg>';
   // ツールバーの「ファイルリンク」ボタン用（クリップ/添付アイコン）
   var ICON_ATTACH      = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 7l-5.5 5.5a2.5 2.5 0 01-3.5-3.5L9 3.5a1.5 1.5 0 012 2L5.5 11a0.5 0.5 0 01-.7-.7L9.5 5.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -1851,7 +1855,8 @@
       { key: 'ol',         icon: ICON_OL,          title: t('ol_tip', 'Numbered list'), sepAfter: true },
       { key: 'blockquote', icon: ICON_BLOCKQUOTE,  title: t('blockquote_tip', 'Quote') },
       { key: 'codeBlock',  icon: ICON_CODE_BLOCK,  title: t('code_block_tip', 'Code block'), sepAfter: true },
-      { key: 'table',      icon: ICON_TABLE,       title: t('table_tip', 'Insert table') },
+      { key: 'table',        icon: ICON_TABLE,         title: t('table_tip', 'Insert table') },
+      { key: 'tableBuilder', icon: ICON_TABLE_BUILDER, title: t('table_builder_tip', 'Open table builder') },
       { key: 'image',      icon: ICON_IMAGE,       title: t('image_tip', 'Insert image') },
       { key: 'fileLink',   icon: ICON_ATTACH,      title: t('file_link_tip', 'Insert file link'), sepAfter: true },
       { key: 'macro',      icon: ICON_MACRO,       title: t('macro_tip', 'Insert macro {{ }}') },
@@ -1940,6 +1945,9 @@
       language: (textFormat === 'textile') ? 'textile' : 'markdown',
       theme: resolveThemeName(PREFS.theme),
       lineNumbers: 'off',
+      // 表ブロックの先頭行に「表ビルダーで開く」アイコンを置くため、
+      // 行番号の左の余白（glyph margin）を有効化する。
+      glyphMargin: true,
       wordWrap: 'on',
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -2217,7 +2225,8 @@
     // 装飾ツールバーのクリックハンドラを登録
     // decoBtns は { bold: <button>, italic: <button>, ... } のマップ。
     // setupDecoToolbar はこのキーで各ボタンにハンドラを結線する。
-    setupDecoToolbar(editor, decoBtns, textarea);
+    // wrapper は表ビルダーのオーバーレイパネルの配置先として渡す。
+    setupDecoToolbar(editor, decoBtns, textarea, wrapper);
   }
 
   // ============================================================
@@ -2993,7 +3002,7 @@
   // ============================================================
   // 選択テキストがあれば「囲む」、なければカーソル位置に挿入する。
   // 行頭系（見出し・リスト・引用・コードブロック）は選択行全体を変換する。
-  function setupDecoToolbar(editor, btns, textarea) {
+  function setupDecoToolbar(editor, btns, textarea, wrapper) {
     // このエディタのフォーマットに対応した記法テーブル
     var fmt = detectFormat(textarea);
     var syntax = syntaxFor(fmt);
@@ -3215,6 +3224,7 @@
     btns.blockquote.addEventListener('click', function () { applyLine('blockquote'); });
     btns.codeBlock.addEventListener('click', applyCodeBlock);
     setupTableGridPicker(btns.table, editor, textarea);
+    setupTableBuilder(btns.tableBuilder, editor, textarea, wrapper);
     setupImagePicker(btns.image, editor, textarea);
     setupFileLinkPicker(btns.fileLink, editor, textarea);
 
@@ -3391,8 +3401,392 @@
   }
 
   // ============================================================
-  // 画像挿入ピッカー
+  // 表ビルダー（Table Builder）
   // ============================================================
+  // ツールバーの「表ビルダー」ボタン押下で、エディタ wrapper 上に
+  // Excelライクな表編集パネルをオーバーレイ表示する。
+  //
+  //   - 本体は public_dist/table-builder/index.js（ESM）。初回押下時に
+  //     動的 import で遅延ロードする（編集画面を開いただけでは読み込まない）。
+  //   - パネル/タブ管理・表データの保持はすべてモジュール側が担う。本体は
+  //     「開く」入口と「エディタへ挿入する」コールバックだけを提供する。
+  //   - 「本文」タブで編集画面へ戻り、再度ボタンを押すと最後に開いていた
+  //     表タブが復元される（モジュール側 open() のロジック）。
+  // ============================================================
+  // 表ビルダーの操作結果を画面右下に短時間表示する軽量トースト。
+  // コピー完了など、モーダルにするほどでない通知に使う。
+  var _tbToastTimer = null;
+  function showTableBuilderToast(message) {
+    var el = document.getElementById('mte-tb-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'mte-tb-toast';
+      el.className = 'mte-tb-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add('mte-tb-toast-show');
+    if (_tbToastTimer) { clearTimeout(_tbToastTimer); }
+    _tbToastTimer = setTimeout(function () {
+      el.classList.remove('mte-tb-toast-show');
+    }, 2600);
+  }
+
+  function setupTableBuilder(btn, editor, textarea, wrapper) {
+    var fmt = detectFormat(textarea);
+    var apiPromise = null; // initTableBuilder の戻り値（{ open, showBody, destroy, openForText }）
+
+    // 表テキストをクリップボードへコピーする。挿入だと出力先が分かりづらい
+    // ため、コピーにしてユーザーが本文の好きな位置へ貼れるようにする。
+    // navigator.clipboard を第一に、使えない環境では execCommand にフォールバック。
+    function copyToClipboard(text) {
+      function done() {
+        showTableBuilderToast(t('tb_copied', '表をコピーしました。本文の貼り付けたい位置で Ctrl+V してください。'));
+      }
+      function fallback() {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          done();
+        } catch (e) {
+          if (window.console) { console.error('[monaco_editor] clipboard copy failed:', e); }
+          window.alert(t('tb_copy_failed', 'コピーに失敗しました。表を範囲選択して手動でコピーしてください。'));
+        }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(fallback);
+      } else {
+        fallback();
+      }
+    }
+
+    // モジュールを遅延ロードして API を初期化する（初回のみ）。
+    function ensureApi() {
+      if (apiPromise) { return apiPromise; }
+      // getMonacoBase() は '/monaco_assets/vs' を返すので、その親が
+      // アセットのルート。表ビルダーは /monaco_assets/textgrid/src/ に置く。
+      var assetRoot = getMonacoBase().replace(/\/vs$/, '');
+      var moduleUrl = assetRoot + '/textgrid/src/index.js';
+      apiPromise = import(moduleUrl).then(function (mod) {
+        return mod.initTableBuilder({
+          wrapper: wrapper,
+          format: fmt,
+          t: t,
+          copy: copyToClipboard,
+          // 本文タブ/挿入で編集画面へ戻すとき、エディタの再レイアウトを促す。
+          showEditor: function () {
+            setTimeout(function () { editor.layout(); editor.focus(); }, 0);
+          }
+        });
+      }).catch(function (err) {
+        // 読み込み失敗時はボタンを無効化せず、コンソールに出すだけに留める
+        // （他のツールバー機能は生かす）。
+        apiPromise = null;
+        if (window.console) { console.error('[monaco_editor] table-builder load failed:', err); }
+        throw err;
+      });
+      return apiPromise;
+    }
+
+    // ツールバーボタン: 新規の表ビルダーを開く（従来どおり）。
+    if (btn) {
+      btn.addEventListener('click', function () {
+        ensureApi().then(function (api) { api.open(); }).catch(function () { /* ログ済み */ });
+      });
+    }
+
+    // ============================================================
+    // 既存表の glyph アイコン → クリックで表ビルダー（バインド）で開く
+    // ============================================================
+    setupExistingTableGlyphs(editor, textarea, fmt, ensureApi);
+  }
+
+  // ============================================================
+  // 本文中の表ブロックを検出し、その先頭行の glyph margin にアイコンを置く。
+  // アイコンクリックで、その表をパースして表ビルダーへバインド表示する。
+  // 編集確定（「更新」/タブを閉じる）でその表ブロックを丸ごと差し替える。
+  // ============================================================
+  function setupExistingTableGlyphs(editor, textarea, fmt, ensureApi) {
+    var monaco = window.monaco;
+    if (!monaco) { return; }
+    var model = editor.getModel();
+    if (!model) { return; }
+
+    // 表アイコンの装飾コレクション。再計算のたびに set し直す。
+    // 古いMonaco（createDecorationsCollection非対応）では deltaDecorations で代替。
+    var collection = null;
+    var glyphIds = [];
+    if (typeof editor.createDecorationsCollection === 'function') {
+      collection = editor.createDecorationsCollection([]);
+    }
+    function setGlyphDecos(decos) {
+      if (collection) { collection.set(decos); }
+      else { glyphIds = editor.deltaDecorations(glyphIds, decos); }
+    }
+
+    // 1行が表の行か（| を含み、コードフェンス内でない簡易判定）。
+    // 行が表行（| を含む）か。
+    function isTableLine(line) {
+      return /\|/.test(line);
+    }
+
+    // モデル全体を走査して表ブロック（連続する表行）を検出する。
+    // 戻り値: [{ startLine, endLine }]（1-based、両端含む）
+    //
+    // ※ Textile はセル内に生の改行を含めるため、表の論理行が物理行を
+    //   またぐことがある。例えば結合 \2/3. のセル内に "a\nb\nc" を入れると:
+    //     行1: |\2/3. a       ← | で始まるが | で終わっていない（継続）
+    //     行2: b              ← | を含まないただのテキスト（継続）
+    //     行3: c |  |         ← | で閉じる
+    //   この場合、行2は単独では表行に見えないが、直前が「| で終わっていない
+    //   表行」なら、セル内改行の継続として表の一部とみなす。
+    function detectBlocks() {
+      var total = model.getLineCount();
+      var result = [];
+      var inFence = false;
+      var start = -1;
+      var inMultiLineCell = false; // 直前の表行が | で閉じていないか
+      for (var ln = 1; ln <= total; ln++) {
+        var text = model.getLineContent(ln);
+        // コードフェンス内は表とみなさない（``` で開閉）。
+        if (/^\s*```/.test(text)) {
+          inFence = !inFence;
+          if (start !== -1) { pushBlock(result, start, ln - 1); start = -1; inMultiLineCell = false; }
+          continue;
+        }
+        if (inFence) {
+          if (start !== -1) { pushBlock(result, start, ln - 1); start = -1; inMultiLineCell = false; }
+          continue;
+        }
+
+        var trimmed = text.trim();
+        var isTable = isTableLine(text);
+        // セル内改行の継続中なら、| を含まない行も表の一部とみなす。
+        // 終端 | が現れるまで継続。
+        var isContinuation = inMultiLineCell && !isTable;
+
+        if (isTable || isContinuation) {
+          if (start === -1) { start = ln; }
+          // 継続フラグの更新: この行が | で閉じていないなら、継続中。
+          if (trimmed.endsWith('|')) {
+            inMultiLineCell = false;
+          } else if (trimmed.startsWith('|') || isContinuation) {
+            // | で始まるが | で終わっていない → 継続セル
+            // または既に継続中の行 → 継続セル
+            inMultiLineCell = true;
+          }
+        } else {
+          if (start !== -1) { pushBlock(result, start, ln - 1); start = -1; }
+          inMultiLineCell = false;
+        }
+      }
+      if (start !== -1) { pushBlock(result, start, total); }
+      return result;
+    }
+
+    // ブロックを確定登録（最低でもデータ行が1行ある＝2行以上のものだけ表とみなす）。
+    function pushBlock(arr, s, e) {
+      if (e - s + 1 < 2) { return; } // 1行だけはヘッダのみ等。表として扱わない
+      arr.push({ startLine: s, endLine: e });
+    }
+
+    // ブロックのテキストを取得（Markdownの区切り行も含めそのまま）。
+    function blockText(startLine, endLine) {
+      var lines = [];
+      for (var ln = startLine; ln <= endLine; ln++) { lines.push(model.getLineContent(ln)); }
+      return lines.join('\n');
+    }
+
+    // 競合比較用の正規化。各行の末尾空白と、文字列全体の末尾改行の揺れを
+    // 吸収する（見た目に影響しない差異で誤検出しないため）。
+    function normalizeForCompare(s) {
+      if (s == null) { return ''; }
+      return s.replace(/[ \t]+(\r?\n)/g, '$1').replace(/\s+$/,'');
+    }
+
+    // 装飾を貼り直す。テキスト変更のたびに呼ぶ（デバウンス付き）。
+    function refresh() {
+      var found = detectBlocks();
+      var decos = found.map(function (b) {
+        return {
+          range: new monaco.Range(b.startLine, 1, b.startLine, 1),
+          options: {
+            isWholeLine: false,
+            glyphMarginClassName: 'mte-tb-glyph',
+            glyphMarginHoverMessage: { value: t('tb_glyph_tip', '表ビルダーで編集') },
+            stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+          }
+        };
+      });
+      setGlyphDecos(decos);
+    }
+
+    // テキスト変更で貼り直し（軽いデバウンス）。
+    var debounceTimer = null;
+    editor.onDidChangeModelContent(function () {
+      if (debounceTimer) { clearTimeout(debounceTimer); }
+      debounceTimer = setTimeout(refresh, 200);
+    });
+    // 初期表示
+    setTimeout(refresh, 60);
+
+    // glyph margin クリックを検出して、その行を含む表ブロックを開く。
+    // 主判定は MouseTargetType.GUTTER_GLYPH_MARGIN。環境によって種別が
+    // 取りづらい場合の保険として、クリック要素が表アイコン(.mte-tb-glyph)
+    // かどうかでも拾う。
+    editor.onMouseDown(function (e) {
+      if (!e.target) { return; }
+      var isGlyphType = (e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN);
+      var dom = e.target.element;
+      var isGlyphDom = dom && dom.classList && dom.classList.contains('mte-tb-glyph');
+      if (!isGlyphType && !isGlyphDom) { return; }
+      var pos = e.target.position;
+      if (!pos) { return; }
+      openBlockAtLine(pos.lineNumber);
+    });
+
+    // 開いた表ブロックを追跡する decoration の管理。
+    //   - 表を開くたびに新しい trackId を作ると「同じ表」と判定できず別タブが
+    //     量産される。そこで、開いた表ごとに追跡 decoration を1つ持ち続け、
+    //     その ID をバインドの一意キー（key）として使う。
+    //   - 再度同じ表（その追跡レンジに重なる行）を開いたら、既存の追跡を
+    //     再利用するので、モジュール側で同じタブが再利用される。
+    var openTracks = []; // [{ trackId }]
+
+    // 指定行を含む「既存の追跡」を探す。あればその trackId を返す。
+    // 新方式では追跡 decoration は1点（アンカー行）なので、アンカー行を含む
+    // 表ブロックに lineNumber が入っていれば「同じ表」とみなす。
+    function findTrackAtLine(lineNumber) {
+      var blocks = detectBlocks();
+      for (var i = 0; i < openTracks.length; i++) {
+        var range = model.getDecorationRange(openTracks[i].trackId);
+        var anchor = range ? range.startLineNumber : openTracks[i].openLine;
+        if (anchor == null) { continue; }
+        for (var j = 0; j < blocks.length; j++) {
+          if (anchor >= blocks[j].startLine && anchor <= blocks[j].endLine
+              && lineNumber >= blocks[j].startLine && lineNumber <= blocks[j].endLine) {
+            return openTracks[i].trackId;
+          }
+        }
+      }
+      return null;
+    }
+
+    // 追跡を破棄する（更新完了やタブクローズ時にホストから呼ばれる）。
+    function disposeTrack(trackId) {
+      editor.deltaDecorations([trackId], []);
+      openTracks = openTracks.filter(function (x) { return x.trackId !== trackId; });
+    }
+
+    // 指定行を含む表ブロックを、表ビルダーへバインドして開く。
+    function openBlockAtLine(lineNumber) {
+      // 最新の状態で再検出（装飾のデバウンス前でも確実に当てる）。
+      var found = detectBlocks();
+      var blk = null;
+      for (var i = 0; i < found.length; i++) {
+        if (lineNumber >= found[i].startLine && lineNumber <= found[i].endLine) { blk = found[i]; break; }
+      }
+      if (!blk) { return; }
+
+      var text = blockText(blk.startLine, blk.endLine);
+
+      // 既にこの表を開いている（追跡がある）なら、その trackId を再利用する。
+      // 無ければ新規に追跡 decoration を作る。
+      //
+      // ※ この追跡 decoration は「クリックした表のアンカー行」を Monaco の
+      //   行追従で覚えるためだけに使う。書き戻し範囲の決定には使わない。
+      //   （貼り付け直後などに getDecorationRange が一時的に安定しないことが
+      //     あり、それを範囲決定に使うと gone 誤検出の原因になるため。）
+      //   更新時は本文を再スキャンし、アンカー行を含む実在の表ブロックへ
+      //   書き戻す。
+      var trackId = findTrackAtLine(lineNumber);
+      if (!trackId) {
+        var trackIds = editor.deltaDecorations([], [{
+          range: new monaco.Range(blk.startLine, 1, blk.startLine, 1),
+          options: { stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges }
+        }]);
+        trackId = trackIds[0];
+        // 開いた時点のブロックテキストをスナップショットとして保持する。
+        // 更新時に「現在のブロックテキスト」と比べ、食い違えば本文側が変更
+        // されたとみなして書き戻しを拒否する（本文が常に正）。
+        // 併せて、追従が失われた場合のフォールバック用に開始行も覚えておく。
+        openTracks.push({ trackId: trackId, snapshot: text, openLine: blk.startLine });
+      }
+
+      // 追跡情報を引く。
+      function trackInfoOf(id) {
+        for (var i = 0; i < openTracks.length; i++) {
+          if (openTracks[i].trackId === id) { return openTracks[i]; }
+        }
+        return null;
+      }
+
+      // 現在のアンカー行を返す。decoration が追従していればその行、
+      // 取れなければ開いた時の行番号にフォールバックする。
+      function anchorLineOf(id) {
+        var range = model.getDecorationRange(id);
+        if (range) { return range.startLineNumber; }
+        var info = trackInfoOf(id);
+        return info ? info.openLine : null;
+      }
+
+      // 書き戻しコールバック（再スキャン方式）。
+      // 戻り値: { ok:true } 成功 / { ok:false, reason:'gone'|'conflict' }
+      //   gone     … アンカー行を含む表ブロックが本文に見つからない（表が削除された）
+      //   conflict … 開いている間に本文側の該当ブロックが変更された
+      function commit(newText) {
+        var info = trackInfoOf(trackId);
+        var anchor = anchorLineOf(trackId);
+        if (anchor == null) { disposeTrack(trackId); return { ok: false, reason: 'gone' }; }
+
+        // 更新の瞬間に本文を再スキャンし、アンカー行を含む表ブロックを特定する。
+        var blocks = detectBlocks();
+        var target = null;
+        for (var i = 0; i < blocks.length; i++) {
+          if (anchor >= blocks[i].startLine && anchor <= blocks[i].endLine) { target = blocks[i]; break; }
+        }
+        if (!target) { disposeTrack(trackId); return { ok: false, reason: 'gone' }; }
+
+        // 競合検出: 現在のブロックテキストが、開いた時のスナップショットと
+        // 違っていたら本文側が編集されている。上書きは本文の変更を壊すので拒否。
+        var nowText = blockText(target.startLine, target.endLine);
+        if (info && info.snapshot != null
+            && normalizeForCompare(nowText) !== normalizeForCompare(info.snapshot)) {
+          return { ok: false, reason: 'conflict' };
+        }
+
+        var range = new monaco.Range(
+          target.startLine, 1,
+          target.endLine, model.getLineMaxColumn(target.endLine));
+        editor.executeEdits('table-builder-update', [{
+          range: range,
+          text: newText.replace(/\n$/, ''),
+          forceMoveMarkers: true
+        }]);
+        disposeTrack(trackId);
+        setTimeout(function () { editor.layout(); editor.focus(); }, 0);
+        return { ok: true };
+      }
+
+      // タブが閉じられた（破棄）ときに追跡も後始末するためのコールバック。
+      function onClose() { disposeTrack(trackId); }
+
+      ensureApi().then(function (api) {
+        if (api.openForText) {
+          // key に安定した trackId を渡す → 同じ表は1タブに集約される。
+          api.openForText(text, fmt, commit, trackId, onClose);
+        } else {
+          api.open();
+        }
+      }).catch(function () { /* ログ済み */ });
+    }
+  }
   // フォーム内の添付ファイルリストから画像を収集し、サムネイル付きで
   // ポップアップ表示する。クリックで ![ファイル名](ファイル名) を挿入。
   // 添付が0件の場合はフォールバックとしてファイル名入力ダイアログを表示。

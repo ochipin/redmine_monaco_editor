@@ -39,6 +39,15 @@ Insert bold, italic, underline, strikethrough, inline code, headings (H1–H4), 
 **Table grid insertion**
 Click the table button and a grid appears; just pick the rows × columns with your mouse (like "3×4") to insert a table skeleton. You can start building tables with an Excel/Word-like feel.
 
+**Table builder (Excel-like editing)**
+Next to the table button, the "table builder" button opens an Excel-like table editor in a separate tab from the body. You can type directly into cells (IME input works from the first character), add/remove rows and columns, select and reorder by dragging, rename columns by double-clicking the header, sort by column, and paste from Excel or Markdown tables. Insert the finished table into the body with the "Insert as Markdown" / "Insert as Textile" buttons. Use the "Body" tab to return to editing, "+" to add tables, and "×" to close them. Multiple tables can be edited in parallel.
+
+**Edit existing tables in place**
+For tables already written in the body, click the table icon that appears at the left of the first row (next to the line gutter) to load it into the table builder. After editing, press "Update" and the original table is rewritten in place. Markdown stays Markdown and Textile stays Textile, so the syntax is never changed unexpectedly. No more lining up `|` characters by hand.
+
+**Cell and header styling (Textile mode only)**
+When the ticket format is Textile, the right-click menu in the table builder offers "Set color", "Make bold", and "Make italic". You can apply them to data cells or column headers, and they affect the whole selection at once. Colors come from an 8-color preset palette (soft red, yellow, green, blue, etc.), and "Custom color" lets you pick any color. Styles are saved using the standard Textile syntax (`|{background:#fee}. text |` / `*bold*` / `_italic_`), so they show up in the Redmine display as expected. Since Markdown has no standard syntax for cell styling, this feature is shown only for Textile tickets.
+
 **Image insertion**
 Pick an image attached to the ticket/wiki from a thumbnail list and insert it. Images that were just uploaded but not yet saved also appear as candidates. When duplicate file names exist, the newer one takes precedence, and hovering shows the date.
 
@@ -95,7 +104,8 @@ redmine_monaco_editor/
 │   ├── javascripts/monaco_editor.js # Main script
 │   └── stylesheets/monaco_editor.css
 ├── public_dist/
-│   └── vs/                          # Monaco itself (copy to public/monaco_assets/vs/)
+│   ├── vs/                          # Monaco itself
+│   └── table-builder/               # Table builder (ESM module)
 ├── LICENSE
 └── README.md
 ```
@@ -112,18 +122,21 @@ Put the `redmine_monaco_editor` directory under Redmine's `plugins/`.
 
 ### Step 2: Place Monaco (vs/) directly under public/ ★IMPORTANT★
 
-This is the key step of this plugin. **Copy `public_dist/vs/` to Redmine's `public/monaco_assets/vs/`.**
+This is the key step of this plugin. **Copy the contents of `public_dist/` to Redmine's `public/monaco_assets/`.** Both `vs/` (Monaco) and `table-builder/` (table builder) must be served with plain paths under `/monaco_assets/`.
 
 ```bash
 mkdir -p <REDMINE_ROOT>/public/monaco_assets
-cp -r <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist/vs \
-      <REDMINE_ROOT>/public/monaco_assets/vs
+cp -r <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist/. \
+      <REDMINE_ROOT>/public/monaco_assets/
 ```
+
+> Note: the trailing dot in `public_dist/.` places `vs/` and `table-builder/` directly under `monaco_assets/`. Without the dot you would get an extra `monaco_assets/public_dist/...` level.
 
 After placing it, you're good if the following file exists:
 
 ```
 <REDMINE_ROOT>/public/monaco_assets/vs/loader.js
+<REDMINE_ROOT>/public/monaco_assets/table-builder/index.js
 ```
 
 ### Step 3: Restart Redmine
@@ -144,6 +157,7 @@ That's why only `vs/` is placed directly under `public/`. Files under public are
 
 - `monaco_editor.js` / `monaco_editor.css` … normal plugin assets (served by Redmine via `javascript_include_tag` / `stylesheet_link_tag`)
 - `vs/` … placed at `public/monaco_assets/vs/` and served with plain paths (`/monaco_assets/vs/...`)
+- `table-builder/` … placed at `public/monaco_assets/table-builder/` and served with plain paths (`/monaco_assets/table-builder/index.js`)
 
 The JS side is hard-configured to reference `/monaco_assets/vs` (see `getMonacoBase()` in `monaco_editor.js`). If you want to change the placement, update this function's return value accordingly.
 
@@ -157,12 +171,12 @@ In setups where `public/` is reset on container start, add the copy step to your
 
 ```bash
 # Example: run before the server starts (exec) inside the entrypoint
-src="plugins/redmine_monaco_editor/public_dist/vs"
-dest="public/monaco_assets/vs"
+src="plugins/redmine_monaco_editor/public_dist"
+dest="public/monaco_assets"
 if [ -d "$src" ]; then
     rm -rf "$dest"
-    mkdir -p "$(dirname "$dest")"
-    cp -r "$src" "$dest"
+    mkdir -p "$dest"
+    cp -r "$src"/. "$dest"/
 fi
 ```
 
@@ -175,8 +189,8 @@ Because it's wrapped in `if [ -d "$src" ]`, removing this plugin won't affect st
 A symlink works too (if your web server can serve symlink targets).
 
 ```bash
-ln -s <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist/vs \
-      <REDMINE_ROOT>/public/monaco_assets/vs
+ln -s <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist \
+      <REDMINE_ROOT>/public/monaco_assets
 ```
 
 ## Uninstall

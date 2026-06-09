@@ -1,0 +1,373 @@
+/* ============================================================
+ * textgrid - スプレッドシート風のテーブルビルダー
+ * 表のスタイル
+ *
+ * クラス接頭辞: tg-
+ * Markdown / Textile に互換性のあるテーブル編集UIを提供。
+ * 配色は明色系のブラウザ前提（背景が白に近い環境）。
+ * ============================================================ */
+
+/* ============================================================
+   表ビルダー（Table Builder）
+   ------------------------------------------------------------
+   ツールバーの表ビルダーボタンで開く、エディタ wrapper を覆う
+   オーバーレイパネル。タブバー / ツール列 / グリッドの3段構成。
+   配色は Redmine 標準（明色）前提。クラス接頭辞は tg-。
+   ============================================================ */
+
+/* オーバーレイパネル本体（wrapper 内に絶対配置でツールバー下を覆う） */
+.tg-panel {
+  position: absolute;
+  left: 0; right: 0;
+  /* ツールバー（約40px）の下からエディタ本体領域を覆う */
+  top: 40px; bottom: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  font-size: 13px;
+  color: #222;
+}
+
+/* ---- タブバー ---- */
+.tg-tabbar {
+  display: flex;
+  align-items: stretch;
+  background: #eef0f2;
+  border-bottom: 1px solid #d4d7da;
+  overflow-x: auto;
+  flex: 0 0 auto;
+}
+
+.tg-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-right: 1px solid #d4d7da;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  color: #444;
+  background: transparent;
+}
+
+.tg-tab:hover { background: #e2e5e8; }
+
+.tg-tab.active {
+  background: #fff;
+  color: #1a1a1a;
+  font-weight: 600;
+  border-bottom: 2px solid #4a7;
+}
+
+.tg-tab-label { line-height: 1.4; }
+
+.tg-tab-close {
+  color: #999;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.tg-tab-close:hover { color: #c0392b; background: rgba(192,57,43,0.1); }
+
+.tg-tab-add {
+  color: #666;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 12px;
+}
+
+.tg-tab-add:hover { color: #4a7; }
+
+/* ---- ツール列（行/列追加・削除・挿入） ---- */
+.tg-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7ea;
+  flex: 0 0 auto;
+}
+
+.tg-tools-spacer { flex: 1 1 auto; }
+
+.tg-toolbtn {
+  appearance: none;
+  border: 1px solid #c6cacd;
+  background: #f7f8f9;
+  color: #333;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.tg-toolbtn:hover { background: #eef0f2; border-color: #aab0b4; }
+
+.tg-toolbtn:active { background: #e2e5e8; }
+
+.tg-toolbtn-primary {
+  background: #4a7;
+  border-color: #3d9468;
+  color: #fff;
+  font-weight: 600;
+}
+
+.tg-toolbtn-primary:hover { background: #3d9468; }
+
+/* ---- グリッド描画領域（スクロール可） ---- */
+.tg-gridhost {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 12px;
+}
+
+.tg-grid { display: inline-block; }
+
+/* ---- グリッド本体（tb_proto2 由来。接頭辞のみ変更） ---- */
+table.tg-table { border-collapse: collapse; }
+
+table.tg-table th,
+table.tg-table td {
+  border: 1px solid #ccc;
+  min-width: 120px;
+  padding: 0;
+  position: relative;
+  box-sizing: border-box;
+  /* セル/ヘッダの装飾色（Textileの背景色）はCSS変数で受ける。
+     インラインの backgroundColor を直接指定すると、選択ハイライトの
+     CSSクラスより優先されて見えなくなるためカスタムプロパティ経由にする。
+     未指定時は親（th/td既定色）が透けるように transparent。 */
+  background-color: var(--tg-bg, transparent);
+}
+
+table.tg-table th {
+  /* ヘッダのデフォルト灰色も変数経由。装飾色が指定されればそちらが優先される。 */
+  background-color: var(--tg-bg, #f3f3f3);
+  font-weight: 600;
+  padding: 0 8px;
+  text-align: left;
+  height: 28px;
+}
+
+table.tg-table td {
+  cursor: cell;
+  white-space: pre-wrap;
+  vertical-align: top;
+  padding: 0;
+  line-height: 1.3;
+  min-height: 24px;
+}
+
+table.tg-table td.tg-selected { outline: 2px solid #4a7; outline-offset: -2px; }
+
+table.tg-table td.tg-rowhead,
+table.tg-table th.tg-corner,
+table.tg-table th.tg-colhead {
+  /* 装飾色が指定されればそちらが優先される。未指定時は灰色。 */
+  background-color: var(--tg-bg, #f3f3f3);
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+table.tg-table td.tg-rowhead { min-width: 36px; color: #666; font-size: 12px; }
+
+table.tg-table th.tg-colhead { cursor: pointer; position: relative; }
+
+.tg-colhead-inner { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
+.tg-colhead-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+.tg-colhead-sort { color: #aaa; font-size: 11px; cursor: pointer; padding: 0 2px; user-select: none; }
+
+.tg-colhead-sort:hover { color: #666; }
+
+.tg-colhead-sort.active { color: #4a7; font-weight: bold; }
+
+.tg-colhead-handle { color: #bbb; cursor: grab; font-size: 11px; padding: 0 2px; user-select: none; }
+
+.tg-colhead-handle:hover { color: #666; }
+
+.tg-colhead-handle:active { cursor: grabbing; }
+
+.tg-colhead-resize {
+  position: absolute; top: 0; right: -3px; width: 7px; height: 100%;
+  cursor: col-resize; z-index: 5;
+}
+
+.tg-colhead-resize:hover { background: rgba(74,170,119,0.3); }
+
+table.tg-table th.tg-colmove-src { background: #d4ecdd !important; opacity: 0.85; }
+
+table.tg-table td.tg-colmove-src { background: #eef8f1; }
+
+table.tg-table td.tg-rowmove-src { background: #eef8f1; }
+
+table.tg-table td.tg-rowhead.tg-rowmove-src { background: #d4ecdd !important; opacity: 0.85; }
+
+.tg-rowhead-inner { display: flex; align-items: center; justify-content: center; gap: 4px; }
+
+.tg-rowhead-handle { color: #bbb; cursor: grab; font-size: 11px; user-select: none; }
+
+.tg-rowhead-handle:hover { color: #666; }
+
+.tg-rowhead-handle:active { cursor: grabbing; }
+
+.tg-rowhead-num { color: #666; font-size: 12px; }
+
+table.tg-table .tg-move-done { animation: mteTbFlash 0.6s ease-out; }
+
+table.tg-table .tg-hsel { background: #cfe8d8 !important; }
+
+/* 装飾色（var(--tg-bg) で指定された Textile 背景色）より、選択中の
+   ハイライトを優先する。装飾色も背景色なので、!important で勝たせないと
+   選択範囲が見えなくなる。 */
+table.tg-table td.tg-rowselected { background-color: #eaf6ef !important; }
+
+/* 全セル textarea（表示も編集も同一要素なのでズレない） */
+table.tg-table td { padding: 0 !important; }
+
+textarea.tg-cell-ta {
+  display: block; box-sizing: border-box;
+  /* 結合された <td colspan="N"> 内でも、textarea が確実に親 td の全幅を
+     占有するよう width と min-width の両方を 100% に。これがないと、
+     table-layout:auto の場合に結合行の textarea が狭くレンダリングされ、
+     編集時の選択枠が結合幅の一部しか覆わずズレて見えることがある。 */
+  width: 100%; min-width: 100%;
+  margin: 0; padding: 4px 6px; line-height: 1.3;
+  border: 0; outline: none; background: transparent;
+  font: inherit; resize: none; overflow: hidden; white-space: pre-wrap;
+  min-height: 24px; vertical-align: top; color: inherit; cursor: cell;
+}
+
+table.tg-table td.tg-selected textarea.tg-cell-ta {
+  /* border ではなく outline で枠を出す（レイアウトを動かさず高さがガタつかない） */
+  outline: 2px solid #4a7; outline-offset: -2px;
+  background: #fff; cursor: text;
+}
+
+input.tg-cell-input {
+  box-sizing: border-box; width: 100%; border: 2px solid #4a7; outline: none;
+  padding: 2px 4px; font: inherit; background: #fff; color: #222;
+}
+
+/* ---- 右クリックメニュー（body 直下・固定配置） ---- */
+.tg-ctxmenu {
+  position: fixed; z-index: 100000; background: #fff; border: 1px solid #bbb;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18); border-radius: 6px; padding: 4px 0;
+  min-width: 160px; font-size: 13px; display: none; color: #222;
+}
+
+.tg-ctxmenu div.item { padding: 6px 14px; cursor: pointer; white-space: nowrap; }
+
+.tg-ctxmenu div.item:hover { background: #eef4f0; }
+
+.tg-ctxmenu div.sep { height: 1px; background: #eee; margin: 4px 0; }
+
+.tg-ctxmenu div.danger { color: #c0392b; }
+
+/* ============================================================
+   表ビルダー: インラインメッセージバナー
+   ------------------------------------------------------------
+   表の上に出すエラー案内（更新失敗の競合・対象消失など）。
+   赤字で目立たせつつ、改行付きの案内文を構造的に伝えられるよう
+   white-space: pre-line で改行を保持する。
+   ============================================================ */
+.tg-banner {
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  border-bottom: 1px solid #e5e7ea;
+  white-space: pre-line;
+  flex: 0 0 auto;
+}
+
+.tg-banner-error {
+  background: #fff5f5;
+  color: #c0392b;
+  border-bottom-color: #f3c5c0;
+  font-weight: 500;
+}
+
+.tg-banner-error::before {
+  content: "ERROR: ";
+  font-weight: 700;
+}
+
+/* ============================================================
+   表ビルダー: カラーピッカー（Textileモード時）
+   ============================================================ */
+.tg-ctxmenu.tg-colorpicker {
+  padding: 8px 8px 6px;
+  min-width: 200px;
+}
+
+.tg-palette {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding-bottom: 6px;
+}
+
+.tg-swatch {
+  display: block;
+  width: 100%;
+  height: 24px;
+  border: 1px solid #c6cacd;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.tg-swatch:hover { border-color: #4a7; box-shadow: 0 0 0 2px rgba(74,170,119,0.25); }
+
+.tg-palette-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-top: 1px solid #eee;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.tg-palette-label { color: #555; }
+
+.tg-palette-input {
+  border: 1px solid #c6cacd;
+  border-radius: 3px;
+  width: 36px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* 結合あり時に無効化される UI（ソートボタン・移動ハンドル）。
+   クリックを止めつつグレーアウトで視覚的にも分かるように。 */
+.tg-disabled {
+  pointer-events: none;
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* 表ビルダーの Undo/Redo アイコンボタン
+   ────────────────────────────────────────
+   ↶ / ↷ の単一文字を、他のラベルボタンより詰めた幅で表示。
+   disabled 時はグレーアウト＋カーソルを not-allowed に。 */
+.tg-toolbtn.tg-toolbtn-icon {
+  padding: 0 8px;
+  font-size: 16px;
+  line-height: 1;
+  min-width: 28px;
+}
+
+.tg-toolbtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+

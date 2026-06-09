@@ -1,0 +1,34 @@
+{
+  "name": "textgrid",
+  "version": "0.1.0",
+  "description": "Spreadsheet-style table builder for Markdown and Textile",
+  "main": "src/index.js",
+  "type": "module",
+  "files": [
+    "src/",
+    "styles/",
+    "LICENSE",
+    "README.md",
+    "README.ja.md"
+  ],
+  "scripts": {
+    "test": "for f in test/tb_*.mjs; do node $f; done",
+    "demo": "echo 'Open http://localhost:8000/demo/ in your browser' && python3 -m http.server 8000"
+  },
+  "keywords": [
+    "table",
+    "spreadsheet",
+    "markdown",
+    "textile",
+    "editor",
+    "redmine"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "devDependencies": {
+    "jsdom": "^22.0.0"
+  }
+}
