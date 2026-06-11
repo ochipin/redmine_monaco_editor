@@ -168,6 +168,20 @@
     return 'markdown';
   }
 
+  // 画像/添付記法のパス部分をエスケープ。
+  // スペースを含むファイル名はMarkdownでは ![](a b.png) のように解釈が壊れ
+  // (最初のスペース以降がタイトル扱いになる)、Textileの !a b.png! も成立しない。
+  // ファイル名全体をencodeURIComponentするとスラッシュや日本語まで壊れるため、
+  // 記法を壊す文字だけを最小限エスケープする。Redmineのattachment解決は
+  // デコード後のファイル名で照合されるため %20 等にしても表示・リンクは成立する。
+  function encodeImagePath(filename) {
+    return String(filename)
+      .replace(/%/g, '%25')   // 先に % を退避（二重エンコード防止）
+      .replace(/ /g, '%20')
+      .replace(/\(/g, '%28')  // Markdownの ](...) 閉じ括弧との衝突回避
+      .replace(/\)/g, '%29');
+  }
+
   // フォーマット別の挿入記法テーブル。
   // 装飾ツールバーの各操作は、このテーブルを介して記法を出し分ける。
   var SYNTAX = {
@@ -185,7 +199,7 @@
       ol:          { type: 'line', prefix: '1. ', exact: false, ordered: true },
       blockquote:  { type: 'line', prefix: '> ',  exact: false },
       codeBlock:   { type: 'mdfence' },
-      image:       function (filename, alt) { return '![' + (alt || '') + '](' + filename + ')'; }
+      image:       function (filename, alt) { return '![' + (alt || '') + '](' + encodeImagePath(filename) + ')'; }
     },
     textile: {
       bold:        { type: 'wrap', prefix: '*',  suffix: '*',  placeholder: t('placeholder_text', 'text') },
@@ -201,7 +215,7 @@
       ol:          { type: 'line', prefix: '# ',  exact: false },
       blockquote:  { type: 'line', prefix: 'bq. ', exact: false },
       codeBlock:   { type: 'pretag' },   // <pre><code>...</code></pre>
-      image:       function (filename) { return '!' + filename + '!'; }
+      image:       function (filename) { return '!' + encodeImagePath(filename) + '!'; }
     }
   };
 
@@ -2018,6 +2032,15 @@
       ro.observe(editorContainer);
     }
 
+    // ---- 貼り付けメニューの抑止 ----
+    // Monaco のツールバー/右クリックメニューの「貼り付け」は内部で
+    // navigator.clipboard.readText() を使う。自己署名証明書などで
+    // セキュアコンテキストとして完全に信頼されていない環境では readText が
+    // NotAllowedError になり、メニューから貼り付けても無反応＋コンソールに
+    // エラーが出る。Ctrl+V は paste イベント経由で readText を使わず常に動くので、
+    // メニューの貼り付けは一律で隠して Ctrl+V に一本化する（詳細は関数定義側）。
+    suppressPasteMenu(editor, monacoInstance);
+
     // 補完候補の説明パネル（documentation）を最初から展開させる。
     // Monacoは詳細パネルの開閉状態を内部に保持しており、初期状態だと
     // 畳まれていて documentation が見えないことがある。補完ウィジェットが
@@ -2101,6 +2124,24 @@
       }
     } catch (e) {
       // defineProperty が失敗しても (1)〜(3) で可能な範囲はカバーする
+    }
+
+    // ---- クリップボード画像ペースト ----
+    // 純正(attachments.js)の copyImageFromClipboard 相当。アップロードは
+    // 純正へ委譲し、本文記法はMonacoのカーソル位置に挿入する。
+    // これらは付加機能なので、万一例外が出てもエディタ全体の初期化を
+    // 巻き込まない（=純正textareaに戻らない）よう個別に保護する。
+    try {
+      setupClipboardImagePaste(editor, textarea, textFormat);
+    } catch (e) {
+      if (window.console) { console.error('[monaco_editor] setupClipboardImagePaste failed:', e); }
+    }
+
+    // ---- 画像記法ホバーでサムネイルツールチップ ----
+    try {
+      setupImageTooltip(editor, textarea, textFormat);
+    } catch (e) {
+      if (window.console) { console.error('[monaco_editor] setupImageTooltip failed:', e); }
     }
 
     // ---- プレビュー更新 ----
@@ -3946,6 +3987,454 @@
            ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
+  // ============================================================
+  // 貼り付けメニューの抑止
+  // ============================================================
+  // Monacoのコンテキストメニューの「貼り付け(Paste)」は内部で
+  // navigator.clipboard.readText() を使う。自己署名証明書などで
+  // セキュアコンテキストとして完全に信頼されていない環境では readText が
+  // NotAllowedError になり、メニューから貼り付けても無反応＋コンソールに
+  // エラーが出る（permission状態が 'denied' とは限らず、呼び出し時に初めて
+  // 失敗するため事前判定が効きにくい）。
+  //
+  // 一方 Ctrl+V は paste イベント経由で readText を使わず常に動作し、
+  // テキスト・画像ともこのプラグインのpasteハンドラで処理できる。
+  // よってメニューの貼り付けは機能的に冗長なので隠す。
+  //
+  // 実装メモ: Monaco 0.52 では addAction で組み込みアクションIDを上書きしても
+  // コンテキストメニュー寄与は差し替わらない。そこでメニューDOMが生成される
+  // たびに該当項目(Paste/貼り付け)を消す。メニューは body 直下に毎回作られる
+  // ので MutationObserver で監視する。監視はページ全体で1つだけ設置する。
+  function suppressPasteMenu(editor, monacoInstance) {
+    if (suppressPasteMenu.installed) { return; }
+    suppressPasteMenu.installed = true;
+
+    // メニュー項目のラベル(英語/日本語)で Paste 行を特定する。
+    // Monacoのコンテキストメニュー項目はおおむね
+    //   <li class="action-item"> ... <span class="action-label">Paste</span> ... </li>
+    // の形。ラベル文字列の完全一致で判定し、誤爆を避ける。
+    var PASTE_LABELS = ['Paste', '貼り付け', '貼り付け(P)', '貼り付け (P)'];
+
+    function hidePasteItems(root) {
+      var labels = root.querySelectorAll('.action-label, .action-menu-item .label, a.action-label');
+      labels.forEach(function (el) {
+        var txt = (el.textContent || '').trim();
+        if (PASTE_LABELS.indexOf(txt) === -1) { return; }
+        // 項目本体(li.action-item など)まで遡って非表示にする。
+        var item = el.closest('li.action-item') ||
+                   el.closest('.action-item') ||
+                   el.closest('li') || el;
+        if (item) { item.style.display = 'none'; }
+      });
+    }
+
+    var observer = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var added = mutations[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var node = added[j];
+          if (node.nodeType !== 1) { continue; } // 要素のみ
+          // コンテキストメニューのコンテナか、その内側にメニューを含むか
+          if (node.classList && (node.classList.contains('monaco-menu-container') ||
+                                 node.classList.contains('context-view') ||
+                                 node.querySelector)) {
+            // メニュー本体が含まれていれば Paste を消す
+            if (node.querySelector && node.querySelector('.monaco-menu')) {
+              hidePasteItems(node);
+            } else if (node.classList && node.classList.contains('monaco-menu')) {
+              hidePasteItems(node);
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+  suppressPasteMenu.installed = false;
+
+  // ============================================================
+  // 画像記法ホバー時のサムネイルツールチップ
+  // ============================================================
+  // 本文中の画像記法にマウスを載せると、その添付ファイルのサムネイル画像と
+  // ファイル名・日付をツールチップ表示する。サムネイルURL・日付は
+  // collectAttachmentsCommon() の結果(画像ピッカーと同じソース)から引く。
+  //
+  // 対象とする画像記法:
+  //   Markdown : ![alt](filename)  /  <img ... src="filename" ...>
+  //   Textile  : !filename!  /  !{width: Npx}.filename!  (修飾子付き)
+  function setupImageTooltip(editor, textarea, fmt) {
+    var tooltipEl = null;
+    var currentFile = null; // 表示中のファイル名(重複再描画防止)
+
+    function getTooltipEl() {
+      if (tooltipEl) { return tooltipEl; }
+      tooltipEl = document.createElement('div');
+      tooltipEl.className = 'monaco-image-tooltip';
+      tooltipEl.style.display = 'none';
+      document.body.appendChild(tooltipEl);
+      return tooltipEl;
+    }
+
+    function hide() {
+      if (tooltipEl) { tooltipEl.style.display = 'none'; }
+      currentFile = null;
+    }
+
+    // 記法中のパス表記を実ファイル名に戻す。
+    // ペースト挿入時に encodeURIComponent + !()の%xx化、あるいは
+    // encodeImagePath(%20等)されているため、デコードして突き合わせる。
+    function decodeName(raw) {
+      var s = raw.trim();
+      try { s = decodeURIComponent(s); } catch (e) { /* 不正な%列はそのまま */ }
+      return s;
+    }
+
+    // 行内の画像記法を列挙し、与えられた column を含むものの「ファイル名」を返す。
+    // 見つからなければ null。
+    function findImageNameAtPosition(model, position) {
+      if (!model) { return null; }
+      var line = model.getLineContent(position.lineNumber);
+      var col = position.column;
+
+      // 検査する記法パターン。各 re は match[grpIndex] にファイル名相当を持つ。
+      var patterns;
+      if (fmt === 'textile') {
+        patterns = [
+          // !{修飾子}.filename!  例: !{width: 680px}.clipboard-...png!
+          { re: /!\{[^}]*\}\.([^!\s]+?)!/g, grp: 1 },
+          // !filename!  （style修飾子なし）
+          { re: /!([^!\s{][^!\s]*?)!/g,     grp: 1 }
+        ];
+      } else {
+        patterns = [
+          // ![alt](filename)
+          { re: /!\[[^\]]*\]\(([^)\s]+)\)/g, grp: 1 },
+          // <img ... src="filename" ...>
+          { re: /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi, grp: 1 }
+        ];
+      }
+
+      for (var p = 0; p < patterns.length; p++) {
+        var re = patterns[p].re;
+        var grp = patterns[p].grp;
+        var m;
+        re.lastIndex = 0;
+        while ((m = re.exec(line)) !== null) {
+          var startCol = m.index + 1;               // 1-indexed
+          var endCol = startCol + m[0].length;      // exclusive
+          if (col >= startCol && col <= endCol) {
+            return { name: decodeName(m[grp]), startCol: startCol };
+          }
+        }
+      }
+      return null;
+    }
+
+    // ファイル名→添付エントリ(previewUrl/attachedAt)を引く。
+    function lookupAttachment(name) {
+      var list = collectAttachmentsCommon();
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].filename === name) { return list[i]; }
+      }
+      return null;
+    }
+
+    function isImageName(name) {
+      return /\.(png|jpe?g|gif|webp|svg|bmp|ico|tiff?)$/i.test(name);
+    }
+
+    function show(hit, clientX) {
+      var att = lookupAttachment(hit.name);
+      // 添付一覧に該当が無い、またはサムネイルURLが無ければ出さない
+      if (!att || !att.previewUrl) { hide(); return; }
+
+      var el = getTooltipEl();
+      var html = '<div class="monaco-image-tooltip-img">' +
+                 '<img src="' + escapeHtml(att.previewUrl) + '" alt="">' +
+                 '</div>' +
+                 '<div class="monaco-image-tooltip-name">' + escapeHtml(att.filename) + '</div>';
+      if (att.attachedAt) {
+        var d = new Date(att.attachedAt);
+        var p = function (n) { return String(n).padStart(2, '0'); };
+        var ds = d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) +
+                 ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        html += '<div class="monaco-image-tooltip-date">' + escapeHtml(ds) + '</div>';
+      }
+      el.innerHTML = html;
+
+      // 位置決め: 記法の開始位置の少し上に出す。
+      var startPos = { lineNumber: editor.getPosition() ? editor.getPosition().lineNumber : 1, column: hit.startCol };
+      // hover対象行を使うため、position から行番号を取り直す
+      startPos.lineNumber = hit.lineNumber;
+      var coord = editor.getScrolledVisiblePosition(startPos);
+      var node = editor.getDomNode();
+      if (!coord || !node) { hide(); return; }
+      var rect = node.getBoundingClientRect();
+
+      var fsEl = ensureTooltipParent(el);
+      el.style.display = 'block';
+      var top, left;
+      if (fsEl) {
+        top = rect.top + coord.top;
+        left = rect.left + coord.left;
+      } else {
+        top = rect.top + coord.top + window.scrollY;
+        left = rect.left + coord.left + window.scrollX;
+      }
+      // まず表示してサイズを測り、行の上に被せて出す
+      var th = el.offsetHeight;
+      var placedTop = top - th - 6;
+      // 上に余白が無ければ行の下に出す
+      if ((fsEl ? placedTop : placedTop - window.scrollY) < 0) {
+        placedTop = top + 20;
+      }
+      el.style.top = placedTop + 'px';
+      el.style.left = left + 'px';
+    }
+
+    // Monacoのマウス移動で、テキスト上の位置を取得して判定する。
+    editor.onMouseMove(function (e) {
+      var t = e.target;
+      if (!t || !t.position) { hide(); return; }
+
+      // 実際の文字の上にいる時だけ判定する。
+      // 行末より右の余白や行内の空白部分でも Monaco は position に
+      // 「その行の最終カラム」を返すため、CONTENT_TEXT 以外は対象外にする。
+      // （CONTENT_TEXT = MouseTargetType.CONTENT_TEXT。enumが取れなければ 6 を使う）
+      var CONTENT_TEXT = (window.monaco && window.monaco.editor &&
+                          window.monaco.editor.MouseTargetType &&
+                          window.monaco.editor.MouseTargetType.CONTENT_TEXT);
+      if (CONTENT_TEXT === undefined || CONTENT_TEXT === null) { CONTENT_TEXT = 6; }
+      if (t.type !== CONTENT_TEXT) { hide(); return; }
+
+      var pos = t.position;
+      var hit = findImageNameAtPosition(editor.getModel(), pos);
+      if (!hit) { hide(); return; }
+      if (!isImageName(hit.name)) { hide(); return; }
+      if (hit.name === currentFile) { return; } // 同じ対象なら再描画しない
+      currentFile = hit.name;
+      hit.lineNumber = pos.lineNumber;
+      show(hit, e.event && e.event.posx);
+    });
+
+    editor.onMouseLeave(function () { hide(); });
+    editor.onDidScrollChange(function () { hide(); });
+    editor.onDidBlurEditorText(function () { hide(); });
+  }
+
+  // ============================================================
+  // クリップボード画像ペースト
+  // ============================================================
+  // Redmine純正(attachments.js)の copyImageFromClipboard 相当を、Monaco上で
+  // 再現する。アップロード(/uploads へのPOST・添付フォームへのtoken登録)は
+  // 純正のグローバル関数 addFile()/ajaxUpload()/uploadBlob() に完全委譲し、
+  // 本文への記法挿入だけをMonaco側でカーソル位置に対して行う。
+  //
+  // 純正の addInlineAttachmentMarkup は隠れた元textareaの selectionStart(=0)に
+  // 挿入してしまい、Monacoのカーソル位置と食い違う。これを避けるため、純正の
+  // 自動挿入は handleFileDropEvent.target を非wiki-edit要素に向けて無効化し、
+  // 記法生成ロジック(getInlineAttachmentMarkup相当)はこちらで持つ。
+  // ============================================================
+  // クリップボード画像ペースト（document レベル・純正方式）
+  // ============================================================
+  // 純正Redmine(attachments.js)は paste イベントの clipboardData.files から
+  // 画像を受け取る「受け身」方式で、navigator.clipboard の権限を必要としない。
+  // そのため自己署名証明書やVivaldiでも動作する。本実装もこれに倣う。
+  //
+  // Monaco は Ctrl+V を内部処理するが、検証の結果ブラウザの native paste は
+  // document まで伝播しており、画像は clipboardData.files (types=['Files']) に
+  // 載ることが確認できた。そこで document に capture で paste を1つだけ張り、
+  // 「今フォーカスしているMonacoエディタ」に対して添付＋記法挿入する。
+  // 複数エディタ(説明欄/注記)があっても、フォーカス中のものだけを対象にするため
+  // 混線しない。
+
+  // 各Monacoエディタの登録簿（editor/textarea/fmt/node）。
+  var clipboardPasteEditors = [];
+
+  // 純正と同じファイル名: clipboard-YYYYMMDDHHmm-xxxxx.ext
+  function makeClipboardName(origName, type) {
+    var d = new Date();
+    var p = function (n) { return ('0' + n).slice(-2); };
+    var stamp = d.getFullYear() +
+                p(d.getMonth() + 1) + p(d.getDate()) +
+                p(d.getHours()) + p(d.getMinutes());
+    var ext = (origName && origName.indexOf('.') !== -1)
+      ? origName.split('.').pop()
+      : ((type && type.split('/')[1]) || 'png');
+    var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var key = '';
+    for (var i = 0; i < 5; i++) {
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return 'clipboard-' + stamp + '-' + key + '.' + ext;
+  }
+
+  // 画像の表示幅(px)。純正同様 naturalWidth / devicePixelRatio。
+  function resolveImageWidth(file) {
+    return new Promise(function (resolve) {
+      if (!file.type || file.type.indexOf('image/') !== 0) { resolve(0); return; }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { URL.revokeObjectURL(url); resolve(img.naturalWidth || img.width || 0); };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(0); };
+      img.src = url;
+    });
+  }
+
+  // ファイル名を記法用にエスケープ(純正 getInlineAttachmentMarkup と同等)。
+  function inlineFilename(name) {
+    var sanitized = name.replace(/[\/\?\%\*\:\|\"\'<>\n\r]+/g, '_');
+    return encodeURIComponent(sanitized).replace(/[!()]/g, function (m) {
+      return '%' + m.charCodeAt(0).toString(16);
+    });
+  }
+
+  // フォーマット別の記法。Markdownはサイズ指定なし、Textileは幅修飾子を付与可。
+  function buildImageMarkup(fmt, name, widthPx) {
+    var fname = inlineFilename(name);
+    if (fmt === 'textile') {
+      return widthPx > 0 ? ('!{width: ' + widthPx + 'px}.' + fname + '!')
+                         : ('!' + fname + '!');
+    }
+    return '![](' + fname + ')';
+  }
+
+  // 指定エディタのカーソル位置に記法を挿入(前後に必要な改行を補う)。
+  function insertMarkupAtCursor(editor, markup) {
+    var sel = editor.getSelection();
+    var model = editor.getModel();
+    if (!sel || !model) { return; }
+    var lineContent = model.getLineContent(sel.startLineNumber);
+    var before = lineContent.substring(0, sel.startColumn - 1);
+    var after = lineContent.substring(sel.startColumn - 1);
+    var prefix = (before.length > 0) ? '\n' : '';
+    var suffix = (after.length > 0) ? '\n' : '';
+    editor.executeEdits('paste-image', [{
+      range: sel, text: prefix + markup + suffix, forceMoveMarkers: true
+    }]);
+    editor.focus();
+  }
+
+  // クリップボードから画像Fileを集める(files と items の両対応・重複除外)。
+  function collectClipboardImages(cd) {
+    var out = [];
+    var seen = {};
+    function push(f) {
+      if (!f || !f.type || f.type.indexOf('image') === -1) { return; }
+      var key = f.type + ':' + (f.size || 0);
+      if (seen[key]) { return; }
+      seen[key] = true;
+      out.push(f);
+    }
+    if (cd.files) {
+      for (var i = 0; i < cd.files.length; i++) { push(cd.files[i]); }
+    }
+    if (cd.items) {
+      for (var j = 0; j < cd.items.length; j++) {
+        var it = cd.items[j];
+        if (it && it.kind === 'file' && it.type && it.type.indexOf('image') === 0) {
+          var f = it.getAsFile();
+          if (f) { push(f); }
+        }
+      }
+    }
+    return out;
+  }
+
+  // 1枚の画像を、指定エディタ文脈に対して処理する。
+  // アップロードは純正(addFile)へ委譲し、記法は当該エディタのカーソル位置へ挿入。
+  function processClipboardImage(ctx, file) {
+    if (!file || !file.type || file.type.indexOf('image') === -1) { return; }
+    var filename = makeClipboardName(file.name, file.type);
+    var renamed = new File([file], filename, { type: file.type });
+
+    // アップロードは純正に委譲（当該エディタのフォーム内 filedrop を使う）。
+    var form = ctx.textarea.closest('form');
+    var inputEl = form ? form.querySelector('input[type=file].filedrop') : null;
+    if (typeof window.addFile === 'function' && inputEl) {
+      // 純正 addInlineAttachmentMarkup は「アップロード完了後(.done)」に
+      // handleFileDropEvent.target が wiki-edit のとき先頭挿入する。記法挿入は
+      // こちらで行うため、純正の自動挿入を抑止したい。
+      //
+      // target を wiki-edit でない中立な要素(document.body)に向けることで、
+      // 純正の挿入条件(hasClass('wiki-edit'))を外して抑止する。
+      // ・自エディタのDOMではなく document.body にするのは、グローバル変数に
+      //   エディタ参照を残さない(ダングリング回避)ため。
+      // ・純正のドラッグ&ドロップ/クリップボード処理は、それぞれの開始時に
+      //   handleFileDropEvent.target = e.target を自分で再設定するため、
+      //   ここで document.body を残しても純正機能には影響しない。
+      // ・アップロードは非同期(.done)で完了するため、ここで即座に元値へ戻すと
+      //   .done 時点で抑止が外れて二重挿入になる。よって戻さず、中立値のままにする。
+      if (typeof window.handleFileDropEvent !== 'undefined') {
+        window.handleFileDropEvent.target = document.body;
+      }
+      window.addFile(inputEl, renamed, true);
+    } else if (window.console) {
+      console.warn('[monaco_editor] native addFile/filedrop not found; cannot upload pasted image');
+    }
+
+    // 記法挿入。Textileのみ表示幅を解決して付与、それ以外は即挿入。
+    if (ctx.fmt === 'textile') {
+      resolveImageWidth(renamed).then(function (w) {
+        var widthPx = w > 0 ? Math.round(w / (window.devicePixelRatio || 1)) : 0;
+        insertMarkupAtCursor(ctx.editor, buildImageMarkup(ctx.fmt, filename, widthPx));
+      });
+    } else {
+      insertMarkupAtCursor(ctx.editor, buildImageMarkup(ctx.fmt, filename, 0));
+    }
+  }
+
+  // 登録済みエディタのうち、今フォーカスしているものを返す。
+  function focusedPasteEditor() {
+    for (var i = 0; i < clipboardPasteEditors.length; i++) {
+      var ctx = clipboardPasteEditors[i];
+      if (ctx.editor && ctx.editor.hasTextFocus && ctx.editor.hasTextFocus()) {
+        return ctx;
+      }
+    }
+    return null;
+  }
+
+  // document レベルの paste ハンドラ（ページに1つだけ設置）。
+  function onDocumentPaste(e) {
+    var cd = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
+    if (!cd) { return; }
+
+    // フォーカス中のMonacoエディタが無ければ素通し（通常のフォーム入力等）。
+    var ctx = focusedPasteEditor();
+    if (!ctx) { return; }
+
+    var images = collectClipboardImages(cd);
+    if (images.length === 0) { return; } // テキスト等はMonacoの通常処理に任せる
+
+    for (var i = 0; i < images.length; i++) {
+      processClipboardImage(ctx, images[i]);
+    }
+    // 画像がMonacoにテキストとして貼られるのを防ぐ。
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function setupClipboardImagePaste(editor, textarea, fmt) {
+    var node = editor.getDomNode();
+    if (!node) { return; }
+
+    // このエディタを登録簿へ（重複登録は避ける）。
+    var exists = false;
+    for (var i = 0; i < clipboardPasteEditors.length; i++) {
+      if (clipboardPasteEditors[i].editor === editor) { exists = true; break; }
+    }
+    if (!exists) {
+      clipboardPasteEditors.push({ editor: editor, textarea: textarea, fmt: fmt, node: node });
+    }
+
+    // document レベルの paste リスナーはページに1度だけ張る。
+    if (!setupClipboardImagePaste._docListenerAttached) {
+      setupClipboardImagePaste._docListenerAttached = true;
+      document.addEventListener('paste', onDocumentPaste, true);
+    }
+  }
   function setupImagePicker(btn, editor, textarea) {
     var fmt = detectFormat(textarea);
     // 開閉は共通コントローラに委譲（画面右端のはみ出し補正あり）
@@ -4131,7 +4620,7 @@
       var syntax = syntaxFor(fmt);
       var code = (typeof syntax.image === 'function')
         ? syntax.image(filename, alt)
-        : '![' + alt + '](' + filename + ')';
+        : '![' + alt + '](' + encodeImagePath(filename) + ')';
 
       editor.executeEdits('insert-image', [{
         range: sel,
