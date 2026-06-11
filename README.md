@@ -53,6 +53,12 @@ When the ticket format is Textile, the right-click menu in the table builder off
 **Image insertion**
 Pick an image attached to the ticket/wiki from a thumbnail list and insert it. Images that were just uploaded but not yet saved also appear as candidates. When duplicate file names exist, the newer one takes precedence, and hovering shows the date.
 
+**Clipboard image paste**
+Paste an image from the clipboard (e.g. a screenshot taken with Win+Shift+S) directly into the editor with Ctrl+V. The image is uploaded through Redmine's standard attachment mechanism and the corresponding markup is inserted at the cursor position (`![](filename)` for Markdown, `!{width: ...}.filename!` for Textile). This works only on screens that have an attachment form (ticket description/notes, wiki, etc.); on screens without attachments (project description, the welcome message, etc.) it is intentionally disabled so you never end up with markup pointing at a file that was never uploaded. Note that clipboard *reading* relies on the browser: it works over a native paste event, so unlike the right-click "Paste" menu it does not require clipboard-read permission and works under self-signed certificates.
+
+**Image markup hover thumbnail**
+Hover over an image reference in the body and a small thumbnail of that attachment, along with its file name and date, is shown in a tooltip — the same image you would see in the attachment picker.
+
 **File link insertion**
 Insert a link to an attachment (`attachment:filename`) by picking it from a list. Each file type — Excel, Word, PDF, PowerPoint, image, code, config file, and more — gets its own icon so you can tell them apart at a glance. Hovering shows the file name, description, and date.
 
@@ -91,7 +97,7 @@ A fullscreen button sits at the top-right of the editor toolbar. Click it to exp
 
 ```
 redmine_monaco_editor/
-├── init.rb                          # Plugin registration + ViewHook (injects the i18n dictionary)
+├── init.rb                          # Plugin registration + ViewHook + asset symlink setup
 ├── app/
 │   └── controllers/
 │       ├── monaco_macros_controller.rb     # Macro list API (for {{ completion)
@@ -105,7 +111,7 @@ redmine_monaco_editor/
 ├── assets/
 │   ├── javascripts/monaco_editor.js # Main script
 │   └── stylesheets/monaco_editor.css
-├── public_dist/
+├── public_dist/                    # Plain-path assets (init.rb auto-symlinks to public/monaco_assets)
 │   ├── vs/                          # Monaco itself
 │   └── textgrid/                    # Table builder library (standalone ESM module)
 │       ├── src/                     #   ESM body (import via src/index.js)
@@ -128,84 +134,35 @@ Put the `redmine_monaco_editor` directory under Redmine's `plugins/`.
 <REDMINE_ROOT>/plugins/redmine_monaco_editor/
 ```
 
-### Step 2: Place Monaco (vs/) directly under public/ ★IMPORTANT★
-
-This is the key step of this plugin. **Copy the contents of `public_dist/` to Redmine's `public/monaco_assets/`.** Both `vs/` (Monaco) and `textgrid/` (table builder library) must be served with plain paths under `/monaco_assets/`.
-
-```bash
-mkdir -p <REDMINE_ROOT>/public/monaco_assets
-cp -r <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist/. \
-      <REDMINE_ROOT>/public/monaco_assets/
-```
-
-> Note: the trailing dot in `public_dist/.` places `vs/` and `textgrid/` directly under `monaco_assets/`. Without the dot you would get an extra `monaco_assets/public_dist/...` level.
-
-After placing it, you're good if the following files exist:
-
-```
-<REDMINE_ROOT>/public/monaco_assets/vs/loader.js
-<REDMINE_ROOT>/public/monaco_assets/textgrid/src/index.js
-<REDMINE_ROOT>/public/monaco_assets/textgrid/styles/textgrid.css
-```
-
-### Step 3: Restart Redmine
+### Step 2: Restart Redmine
 
 Restart your web server (Puma / Passenger, etc.).
+
+On startup, the plugin's `init.rb` automatically creates a symlink so that the bundled assets are served with plain paths:
+
+```
+<REDMINE_ROOT>/public/monaco_assets -> <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist
+```
+
+This means **no manual copy step is required.** Both `vs/` (Monaco) and `textgrid/` (table builder library) become reachable under `/monaco_assets/`. The symlink is created only when `public/monaco_assets` does not already exist, so it is safe to leave in place across restarts.
 
 ### Verify
 
 Open a ticket or wiki edit screen in your browser; if the editor has changed to Monaco, it worked. You can also confirm by accessing `<host>/monaco_assets/vs/loader.js` directly and getting a 200 response.
 
-## Why place it under public/ (technical background)
-
-You might think "Step 2 is a bit of a hassle," but there's a reason rooted in Redmine 6.
-
-Redmine 6's asset pipeline (Propshaft) serves assets only via hashed URLs (`/assets/....-<hash>.js`). Monaco Editor, on the other hand, is designed to **dynamically load many sub-files via plain paths (no hash)** starting from `vs/loader.js` (e.g. `vs/editor/...`). So if placed under Propshaft management, those plain paths return 404 and it won't work.
-
-That's why only `vs/` is placed directly under `public/`. Files under public are served statically by Rails with their plain paths (bypassing Propshaft), so Monaco's loader works correctly.
-
-- `monaco_editor.js` / `monaco_editor.css` … normal plugin assets (served by Redmine via `javascript_include_tag` / `stylesheet_link_tag`)
-- `vs/` … placed at `public/monaco_assets/vs/` and served with plain paths (`/monaco_assets/vs/...`)
-- `textgrid/src/` … placed at `public/monaco_assets/textgrid/src/` and served with plain paths (`/monaco_assets/textgrid/src/index.js`)
-
-The JS side is hard-configured to reference `/monaco_assets/vs` (see `getMonacoBase()` in `monaco_editor.js`). If you want to change the placement, update this function's return value accordingly.
-
-## Automating the copy on every update
-
-The Step 2 copy needs to be done each time you update the plugin. Depending on your environment, integrating it into the startup process removes the need to copy manually.
-
-### Docker (official redmine image, etc.)
-
-In setups where `public/` is reset on container start, add the copy step to your entrypoint script.
-
-```bash
-# Example: run before the server starts (exec) inside the entrypoint
-src="plugins/redmine_monaco_editor/public_dist"
-dest="public/monaco_assets"
-if [ -d "$src" ]; then
-    rm -rf "$dest"
-    mkdir -p "$dest"
-    cp -r "$src"/. "$dest"/
-fi
-```
-
-Because it's wrapped in `if [ -d "$src" ]`, removing this plugin won't affect startup (if the source doesn't exist, it does nothing).
-
-### Non-Docker (Passenger / Puma in place, etc.)
-
-`public/monaco_assets/vs/` persists once copied, so you only need to run Step 2 once. When you update the plugin, run Step 2 again to replace `vs/`.
-
-A symlink works too (if your web server can serve symlink targets).
+If the editor does not appear, create the symlink manually:
 
 ```bash
 ln -s <REDMINE_ROOT>/plugins/redmine_monaco_editor/public_dist \
       <REDMINE_ROOT>/public/monaco_assets
 ```
 
+If it still does not appear, make sure your web server is allowed to follow symlinks (e.g. nginx's `disable_symlinks` is off).
+
 ## Uninstall
 
 1. Remove `plugins/redmine_monaco_editor/`
-2. Remove `public/monaco_assets/`
+2. Remove `public/monaco_assets` (the symlink)
 3. Restart Redmine
 
 You'll be back to the default editor.

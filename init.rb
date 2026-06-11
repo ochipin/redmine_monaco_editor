@@ -175,3 +175,27 @@ module RedmineMonacoEditor
     end
   end
 end
+
+# ============================================================
+# Propshaft対応: 起動時に public_dist へのシンボリックリンクを自動生成
+# ============================================================
+# コンテナの entrypoint.sh などで行っていた assets/ のコピー作業を、
+# Rails起動時に自動化する。Monaco本体の読み込みに Propshaft の
+# アセットパイプラインを通さず、実体パスで解決させるための処理。
+Rails.application.config.after_initialize do
+  # リンク元: plugins/redmine_monaco_editor/public_dist
+  source_dist = File.expand_path('../public_dist', __FILE__)
+
+  # リンク先: public/monaco_assets
+  target_assets = Rails.root.join('public', 'monaco_assets')
+
+  # 既にリンク、ディレクトリが存在する場合はスキップ（迷子リンク防止含む）
+  if File.exist?(source_dist) && !File.exist?(target_assets) && !File.symlink?(target_assets)
+    begin
+      File.symlink(source_dist, target_assets)
+      Rails.logger.info '[redmine_monaco_editor] Successfully created symlink for public/monaco_assets'
+    rescue => e
+      Rails.logger.error "[redmine_monaco_editor] Failed to create symlink: #{e.class}: #{e.message}"
+    end
+  end
+end
