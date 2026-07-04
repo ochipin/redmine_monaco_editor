@@ -5755,7 +5755,7 @@
     // 1行が表の行か（| を含み、コードフェンス内でない簡易判定）。
     // 行が表行（| を含む）か。
     function isTableLine(line) {
-      return /\|/.test(line);
+      return /^\s*\|/.test(line);
     }
 
     // モデル全体を走査して表ブロック（連続する表行）を検出する。
